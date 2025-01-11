@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
-	actions "pigeongo/actions"
-	commands "pigeongo/commands"
-	config "pigeongo/config"
-	game "pigeongo/game"
-	pigeon "pigeongo/pigeon"
-	player "pigeongo/player"
-	timer "pigeongo/timer"
+	config "github.com/MyelinBots/pigeonbot-go/config"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/actions"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/pigeon"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/player"
+	"github.com/MyelinBots/pigeonbot-go/internal/services/timer"
 )
 
 func main() {
+
 	actions.Doactions()
 	commands.Docommands()
 	config.LoadConfigOrPanic()
@@ -19,6 +20,8 @@ func main() {
 	pigeon.NewPigeon()
 	player.NewPlayer()
 	timer.NewRepeatedTimer()
+
+	<-quit
 }
 
 // Mock implementation of IRC

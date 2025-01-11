@@ -3,7 +3,9 @@
         "host": "irc.myelinbots.com",
         "port": 6697,
         "ssl": true,
-        "nick": "Pigeonbot"
+        "nick": "Pigeonbot2",
+        "channels": ["#lobby"],
+        "network": "Myelinbots"
 
         
     }
