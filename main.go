@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+
 	config "github.com/MyelinBots/pigeonbot-go/config"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/actions"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"

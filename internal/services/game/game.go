@@ -3,15 +3,16 @@ package game
 import (
 	"context"
 	"fmt"
+	"math/rand"
+	"sync"
+	"time"
+
 	player2 "github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/actions"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/pigeon"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/player"
 	irc "github.com/fluffle/goirc/client"
-	"math/rand"
-	"sync"
-	"time"
 
 	"github.com/MyelinBots/pigeonbot-go/config"
 )
@@ -57,10 +58,10 @@ func NewGame(cfg config.GameConfig, client *irc.Conn, repo player2.PlayerReposit
 // predefinedActions returns the predefined game actions
 func predefinedActions() []actions.Action {
 	return []actions.Action{
-		{"stole", []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"}, "❗⚠️ A %s pigeon %s your %s - - - - - 🐦", 10},
-		{"pooped", []string{"car 🚗", "head 👤", "laptop 💻"}, "❗⚠️ A %s pigeon %s on your %s - - - - - 🐦", 10},
-		{"landed", []string{"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠", "swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻"}, "❗⚠️ A %s pigeon has %s on your %s - - - - - 🐦", 10},
-		{"mating", []string{"balcony 🏠🌿", "car 🚗", "bed 🛏️", "swimming pool 🏖️", "couch 🛋️", "laptop 💻"}, "❗⚠️ %s pigeons are %s at your %s - - - - - 🕊️ 💕 🕊️", 10},
+		{"stole", []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"}, "❗⚠️ A %s pigeon %s your %s - - 🐦", 10},
+		{"pooped", []string{"car 🚗", "head 👤", "laptop 💻"}, "❗⚠️ A %s pigeon %s on your %s - - 🐦", 10},
+		{"landed", []string{"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠", "swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻"}, "❗⚠️ A %s pigeon has %s on your %s - - 🐦", 10},
+		{"mating", []string{"balcony 🏠🌿", "car 🚗", "bed 🛏️", "swimming pool 🏖️", "couch 🛋️", "laptop 💻"}, "❗⚠️ %s pigeons are %s at your %s - - 🕊️ 💕 🕊️", 10},
 	}
 }
 
@@ -166,12 +167,12 @@ func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	defer g.activePigeon.Unlock()
 
 	if g.activePigeon.activePigeon == nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - - - - 🐦", name))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - 😘 🐦", name))
 	}
 
 	foundPlayer, err := g.FindPlayer(ctx, name)
 	if err != nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - - - - 🐦", name))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - 😘 🐦", name))
 		return err
 	}
 	//print("Random result: %s, success rate: %s" % (str(randomResult), str(self.active.success() / 100)))
@@ -190,13 +191,14 @@ func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	if result == 1 {
 		foundPlayer.Points += g.activePigeon.activePigeon.Points
 		foundPlayer.Count += 1
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - - - - - 🐦", name))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - -  🐦 🔫 you are a murderer! . .  you have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . you now have a total of %d points", name, foundPlayer.Count, foundPlayer.Points))
+
 		// remove pigeon from active pigeon
 		g.activePigeon.activePigeon = nil
 	} else {
 		// foundPlayer.Points -= g.activePigeon.activePigeon.Points
 
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 🐦", name))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 😘 🐦", name))
 	}
 
 	err = g.SavePlayers(ctx)
