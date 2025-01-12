@@ -1,0 +1,12 @@
+{
+    "ircconfig": {
+        "host": "irc.myelinbots.com",
+        "port": 6697,
+        "ssl": true,
+        "nick": "Pigeonbot2",
+        "channelsString": "#lobby",
+        "network": "Myelinbots"
+
+        
+    }
+}
