@@ -1,6 +1,9 @@
 package config
 
-import "github.com/jinzhu/configor"
+import (
+	"github.com/jinzhu/configor"
+	"strings"
+)
 
 type Config struct {
 	AppConfig  AppConfig  `env:"APPCONFIG"`
@@ -15,12 +18,13 @@ type AppConfig struct {
 }
 
 type IRCConfig struct {
-	Host     string   `env:"HOST"`
-	Port     int      `env:"PORT"`
-	SSL      bool     `env:"SSL"`
-	Nick     string   `env:"NICK"`
-	Channels []string `env:"CHANNELS"`
-	Network  string   `env:"NETWORK"`
+	Host           string `env:"HOST"`
+	Port           int    `env:"PORT"`
+	SSL            bool   `env:"SSL"`
+	Nick           string `env:"NICK"`
+	ChannelsString string `env:"CHANNELS"`
+	Channels       []string
+	Network        string `env:"NETWORK"`
 }
 
 type DBConfig struct {
@@ -39,6 +43,8 @@ type GameConfig struct {
 func LoadConfigOrPanic() Config {
 	var config = Config{}
 	configor.Load(&config, "config/config.dev.json")
+
+	config.IRCConfig.Channels = strings.Split(config.IRCConfig.ChannelsString, ",")
 
 	return config
 }

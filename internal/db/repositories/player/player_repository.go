@@ -1,3 +1,4 @@
+//go:generate mockgen -destination=mocks/mock_player_repository.go -package=mocks github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player PlayerRepository
 package player
 
 import (
@@ -41,7 +42,7 @@ func (r *PlayerRepositoryImpl) GetAllPlayers(ctx context.Context) ([]*Player, er
 func (r *PlayerRepositoryImpl) UpsertPlayer(ctx context.Context, player *Player) error {
 	// find player by name
 	var existing Player
-	err := r.db.DB.Where("name = ?", player.Name).First(&existing).Error
+	err := r.db.DB.Where("name = ? AND channel = ? AND network = ?", player.Name, player.Channel, player.Network).First(&existing).Error
 	if err != nil {
 		// if error type is gorm.ErrRecordNotFound, create new player
 		if errors.Is(err, gorm.ErrRecordNotFound) {

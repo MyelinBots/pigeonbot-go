@@ -12,6 +12,7 @@ type Player struct {
 	Points     int       `gorm:"column:points;type:int;not null" json:"points"`
 	Count      int       `gorm:"column:count;type:int;not null" json:"count"`
 	Network    string    `gorm:"column:network;type:text;not null" json:"network"`
+	Channel    string    `gorm:"column:channel;type:text;not null" json:"channel"`
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"column:updated_at" json:"updated_at"`
 }

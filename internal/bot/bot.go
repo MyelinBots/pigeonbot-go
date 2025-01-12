@@ -10,11 +10,22 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
 	irc "github.com/fluffle/goirc/client"
+	"sync"
 )
+
+type GameStarted struct {
+	sync.Mutex
+	started bool
+}
 
 func StartBot() error {
 	cfg := config.LoadConfigOrPanic()
 
+	started := &GameStarted{
+		started: false,
+	}
+
+	fmt.Printf("Starting bot with config: %+v\n", cfg)
 	database := db.NewDatabase(cfg.DBConfig)
 	playerRepo := player.NewPlayerRepository(database)
 
@@ -34,18 +45,70 @@ func StartBot() error {
 	commandInstance := commands.NewCommandController(gameInstance)
 
 	commandInstance.AddCommand("!shoot", gameInstance.HandleShoot)
-	commandInstance.AddCommand("!points", gameInstance.HandlePoints)
+	commandInstance.AddCommand("!score", gameInstance.HandlePoints)
+	commandInstance.AddCommand("!help", gameInstance.HandleHelp)
+	commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
+	commandInstance.AddCommand("!bef", gameInstance.HandleBef)
 
 	c.HandleFunc(irc.CONNECTED, func(conn *irc.Conn, line *irc.Line) {
+		fmt.Printf("Connected to %s\n", cfg.IRCConfig.Host)
+		// list channels from config
+		fmt.Printf("Joining channel %v\n", cfg.IRCConfig)
+
 		for _, channel := range cfg.IRCConfig.Channels {
+			fmt.Printf("Joining channel %s\n", channel)
 			conn.Join(channel)
 		}
 
-		go gameInstance.Start(ctx)
+	})
+
+	c.HandleFunc("422", func(conn *irc.Conn, line *irc.Line) {
+		for _, channel := range cfg.IRCConfig.Channels {
+			fmt.Printf("Joining channel %s\n", channel)
+			conn.Join(channel)
+		}
+	})
+
+	c.HandleFunc("376", func(conn *irc.Conn, line *irc.Line) {
+		for _, channel := range cfg.IRCConfig.Channels {
+			fmt.Printf("Joining channel %s\n", channel)
+			conn.Join(channel)
+		}
+	})
+
+	c.HandleFunc(irc.JOIN, func(conn *irc.Conn, line *irc.Line) {
+		fmt.Printf("Joined %s\n", line.Args[0])
+		started.Lock()
+		defer started.Unlock()
+		// if channel is first channel in config
+		if line.Args[0] == cfg.IRCConfig.Channels[0] && !started.started {
+			go gameInstance.Start(ctx)
+			started.started = true
+		}
+		return
+
+	})
+
+	c.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
+
+		fmt.Printf("Invited to %s\n", line.Args[1])
+		conn.Join(line.Args[1])
+
 	})
 
 	c.HandleFunc(irc.PRIVMSG, func(conn *irc.Conn, line *irc.Line) {
 		// if message is !shoot
+		// if message is !start
+		if line.Args[1] == "!start" {
+			started.Lock()
+			defer started.Unlock()
+			if !started.started {
+				go gameInstance.Start(ctx)
+				started.started = true
+				return
+			}
+
+		}
 		err := commandInstance.HandleCommand(ctx, line)
 		if err != nil {
 			fmt.Printf("Error handling command: %s\n", err.Error())

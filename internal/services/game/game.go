@@ -1,20 +1,19 @@
+//go:generate mockgen -destination=mocks/mock_irc_Client.go -package=mocks github.com/MyelinBots/pigeonbot-go/internal/services/game IRCClient
 package game
 
 import (
 	"context"
 	"fmt"
-	"math/rand"
+	rand "math/rand/v2"
 	"sync"
 	"time"
 
+	"github.com/MyelinBots/pigeonbot-go/config"
 	player2 "github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/actions"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/pigeon"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/player"
-	irc "github.com/fluffle/goirc/client"
-
-	"github.com/MyelinBots/pigeonbot-go/config"
 )
 
 type ActivePigeon struct {
@@ -27,11 +26,15 @@ type Players struct {
 	players []*player.Player
 }
 
+type IRCClient interface {
+	Privmsg(channel, message string)
+}
+
 // Game struct encapsulates game state and functionality
 type Game struct {
 	config           config.GameConfig
 	players          Players
-	ircClient        *irc.Conn
+	ircClient        IRCClient
 	actions          []actions.Action
 	activePigeon     *ActivePigeon
 	pigeons          []*pigeon.Pigeon
@@ -41,7 +44,7 @@ type Game struct {
 }
 
 // NewGame initializes and returns a new Game instance
-func NewGame(cfg config.GameConfig, client *irc.Conn, repo player2.PlayerRepository, network string, channel string) *Game {
+func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerRepository, network string, channel string) *Game {
 
 	return &Game{
 		config:           cfg,
@@ -109,8 +112,8 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 		return
 	}
 
-	randomPigeon := g.pigeons[rand.Intn(len(g.pigeons))]
-	randomAction := g.actions[rand.Intn(len(g.actions))]
+	randomPigeon := g.pigeons[rand.IntN(len(g.pigeons))]
+	randomAction := g.actions[rand.IntN(len(g.actions))]
 
 	g.activePigeon.activePigeon = randomPigeon
 	fmt.Println(randomAction.Act(randomPigeon.Type))
@@ -134,6 +137,7 @@ func (g *Game) addPlayer(ctx context.Context, name string) (*player.Player, erro
 		Count:   0,
 		Points:  0,
 		Name:    name,
+		Channel: g.channel,
 		Network: g.network,
 	}
 	err := g.playerRepository.UpsertPlayer(ctx, &playerEntity)
@@ -177,10 +181,9 @@ func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	}
 	//print("Random result: %s, success rate: %s" % (str(randomResult), str(self.active.success() / 100)))
 	// calculate success using rand and active pigeon success rate, must return a 0 or 1, if 0, player loses points, if 1, player gains points
-	rand.Seed(time.Now().UnixNano())
 
 	// Generate a random number between 0 and 99
-	randomValue := rand.Intn(100)
+	randomValue := rand.IntN(100)
 
 	// Generate 1 or 0 based on the success rate
 	result := 0
@@ -216,6 +219,7 @@ func (g *Game) SavePlayers(ctx context.Context) error {
 			Count:   p.Count,
 			Points:  p.Points,
 			Name:    p.Name,
+			Channel: g.channel,
 			Network: g.network,
 		}
 		err := g.playerRepository.UpsertPlayer(ctx, &playerEntity)
@@ -242,4 +246,39 @@ func (g *Game) HandlePoints(ctx context.Context, args ...string) error {
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 
+}
+
+func (g *Game) HandleHelp(ctx context.Context, args ...string) error {
+	// list player points in one line
+	// format: <player name>: <points>, <player name>: <points>, ...
+	g.players.Lock()
+	defer g.players.Unlock()
+
+	text := "Commands: !shoot, !score, !pigeons, !bef, !help"
+	g.ircClient.Privmsg(g.channel, text)
+	return nil
+
+}
+
+func (g *Game) HandleCount(ctx context.Context, args ...string) error {
+	// list player points in one line
+	// format: <player name>: <points>, <player name>: <points>, ...
+	g.players.Lock()
+	defer g.players.Unlock()
+
+	text := ""
+	for _, p := range g.players.players {
+		text += fmt.Sprintf("%s: %d, ", p.Name, p.Count)
+
+	}
+
+	g.ircClient.Privmsg(g.channel, text)
+	return nil
+
+}
+
+func (g *Game) HandleBef(ctx context.Context, args ...string) error {
+	g.ircClient.Privmsg(g.channel, "🕊️ ~ coo coo ~ cannot be frens with a rat of the sky ~ 🕊️")
+
+	return nil
 }

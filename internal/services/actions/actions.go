@@ -20,16 +20,3 @@ func (a *Action) Act(name string) string {
 	item := a.Items[rand.Intn(len(a.Items))]
 	return fmt.Sprintf(a.Format, name, a.Action, item)
 }
-
-// Doactions initializes and performs some example actions
-func Doactions() {
-	action := Action{
-		Action:      "play",
-		Items:       []string{"ball", "frisbee", "rope"},
-		Format:      "%s wants to %s with a %s.",
-		ActionPoint: 10,
-	}
-
-	result := action.Act("Alice")
-	fmt.Println(result)
-}

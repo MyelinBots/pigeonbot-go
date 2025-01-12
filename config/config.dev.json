@@ -4,7 +4,7 @@
         "port": 6697,
         "ssl": true,
         "nick": "Pigeonbot2",
-        "channels": ["#lobby"],
+        "channelsString": "#lobby",
         "network": "Myelinbots"
 
         
