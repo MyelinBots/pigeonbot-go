@@ -19,11 +19,20 @@ type GameStarted struct {
 	started bool
 }
 
+type Identified struct {
+	sync.Mutex
+	identified bool
+}
+
 func StartBot() error {
 	cfg := config.LoadConfigOrPanic()
 
 	started := &GameStarted{
 		started: false,
+	}
+
+	identified := &Identified{
+		identified: false,
 	}
 
 	fmt.Printf("Starting bot with config: %+v\n", cfg)
@@ -87,6 +96,8 @@ func StartBot() error {
 			go gameInstance.Start(ctx)
 			started.started = true
 		}
+
+		handleNickserv(cfg.IRCConfig, identified, conn)
 		return
 
 	})
@@ -116,6 +127,7 @@ func StartBot() error {
 			fmt.Printf("Error handling command: %s\n", err.Error())
 			return
 		}
+
 	})
 
 	quit := make(chan bool)
@@ -131,4 +143,15 @@ func StartBot() error {
 
 	cancel()
 	return nil
+}
+
+func handleNickserv(cfg config.IRCConfig, identified *Identified, c *irc.Conn) {
+	identified.Lock()
+	defer identified.Unlock()
+
+	if !identified.identified && cfg.NickservPassword != "" {
+		// use nickserv command
+		command := fmt.Sprintf(cfg.NickservCommand, cfg.NickservPassword)
+		c.Raw(command)
+	}
 }
