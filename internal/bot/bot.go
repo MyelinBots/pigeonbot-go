@@ -7,6 +7,7 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/config"
 	"github.com/MyelinBots/pigeonbot-go/internal/db"
 	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
+	"github.com/MyelinBots/pigeonbot-go/internal/healthcheck"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
 	irc "github.com/fluffle/goirc/client"
@@ -30,6 +31,7 @@ func StartBot() error {
 	playerRepo := player.NewPlayerRepository(database)
 
 	ctx, cancel := context.WithCancel(context.Background())
+	healthcheck.StartHealthcheck(ctx, cfg.AppConfig)
 
 	ircConfig := irc.NewConfig(cfg.IRCConfig.Nick)
 	ircConfig.SSL = cfg.IRCConfig.SSL
