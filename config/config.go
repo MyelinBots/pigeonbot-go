@@ -15,6 +15,7 @@ type Config struct {
 type AppConfig struct {
 	APPName string `default:"pigeonbot"`
 	Version string `default:"x.x.x" env:"VERSION"`
+	Port    int    `default:"8080" env:"APP_PORT"`
 }
 
 type IRCConfig struct {
