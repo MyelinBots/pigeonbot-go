@@ -19,13 +19,15 @@ type AppConfig struct {
 }
 
 type IRCConfig struct {
-	Host           string `env:"HOST"`
-	Port           int    `env:"PORT"`
-	SSL            bool   `env:"SSL"`
-	Nick           string `env:"NICK"`
-	ChannelsString string `env:"CHANNELS"`
-	Channels       []string
-	Network        string `env:"NETWORK"`
+	Host             string `env:"HOST"`
+	Port             int    `env:"PORT"`
+	SSL              bool   `env:"SSL"`
+	Nick             string `env:"NICK"`
+	ChannelsString   string `env:"CHANNELS"`
+	Channels         []string
+	Network          string `env:"NETWORK"`
+	NickservCommand  string `env:"NICKSERV_COMMAND" default:"PRIVMSG NickServ IDENTIFY %s"`
+	NickservPassword string `env:"NICKSERV_PASSWORD" default:""`
 }
 
 type DBConfig struct {
