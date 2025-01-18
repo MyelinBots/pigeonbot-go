@@ -148,10 +148,10 @@ func StartBot() error {
 func handleNickserv(cfg config.IRCConfig, identified *Identified, c *irc.Conn) {
 	identified.Lock()
 	defer identified.Unlock()
-	// use nickserv command
-	command := fmt.Sprintf(cfg.NickservCommand, cfg.NickservPassword)
 
-	if !identified.identified {
+	if !identified.identified && cfg.NickservPassword != "" {
+		// use nickserv command
+		command := fmt.Sprintf(cfg.NickservCommand, cfg.NickservPassword)
 		c.Raw(command)
 	}
 }
