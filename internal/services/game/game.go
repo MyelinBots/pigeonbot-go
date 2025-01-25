@@ -284,7 +284,7 @@ func (g *Game) HandleCount(ctx context.Context, args ...string) error {
 	sortedPlayers := make([]*player.Player, len(g.players.players))
 	copy(sortedPlayers, g.players.players)
 	sort.Slice(sortedPlayers, func(i, j int) bool {
-		return sortedPlayers[i].Count < sortedPlayers[j].Count
+		return sortedPlayers[i].Count > sortedPlayers[j].Count
 	})
 	for _, p := range sortedPlayers {
 		text += fmt.Sprintf("%s: %d, ", p.Name, p.Count)
