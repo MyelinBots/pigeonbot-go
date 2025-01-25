@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	rand "math/rand/v2"
+	"sort"
 	"sync"
 	"time"
 
@@ -243,8 +244,14 @@ func (g *Game) HandlePoints(ctx context.Context, args ...string) error {
 	g.players.Lock()
 	defer g.players.Unlock()
 
+	sortedPlayers := make([]*player.Player, len(g.players.players))
+	copy(sortedPlayers, g.players.players)
+	sort.Slice(sortedPlayers, func(i, j int) bool {
+		return sortedPlayers[i].Points > sortedPlayers[j].Points
+	})
+
 	text := ""
-	for _, p := range g.players.players {
+	for _, p := range sortedPlayers {
 		text += fmt.Sprintf("%s: %d, ", p.Name, p.Points)
 
 	}
@@ -273,7 +280,13 @@ func (g *Game) HandleCount(ctx context.Context, args ...string) error {
 	defer g.players.Unlock()
 
 	text := ""
-	for _, p := range g.players.players {
+	// sort players by count
+	sortedPlayers := make([]*player.Player, len(g.players.players))
+	copy(sortedPlayers, g.players.players)
+	sort.Slice(sortedPlayers, func(i, j int) bool {
+		return sortedPlayers[i].Count < sortedPlayers[j].Count
+	})
+	for _, p := range sortedPlayers {
 		text += fmt.Sprintf("%s: %d, ", p.Name, p.Count)
 
 	}
