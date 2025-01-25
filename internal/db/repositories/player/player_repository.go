@@ -11,7 +11,7 @@ import (
 
 type PlayerRepository interface {
 	GetPlayerByID(id string) (*Player, error)
-	GetAllPlayers(ctx context.Context) ([]*Player, error)
+	GetAllPlayers(ctx context.Context, network string, channel string) ([]*Player, error)
 	UpsertPlayer(ctx context.Context, player *Player) error
 }
 
@@ -29,9 +29,9 @@ func (r *PlayerRepositoryImpl) GetPlayerByID(id string) (*Player, error) {
 	return nil, nil
 }
 
-func (r *PlayerRepositoryImpl) GetAllPlayers(ctx context.Context) ([]*Player, error) {
+func (r *PlayerRepositoryImpl) GetAllPlayers(ctx context.Context, network string, channel string) ([]*Player, error) {
 	var players []*Player
-	err := r.db.DB.Find(&players).Error
+	err := r.db.DB.Find(&players, "network = ? AND channel = ?", network, channel).Error
 	if err != nil {
 		return nil, err
 	}

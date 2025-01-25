@@ -89,7 +89,7 @@ func (g *Game) Start(ctx context.Context) {
 
 func (g *Game) syncPlayers(ctx context.Context) {
 
-	players, err := g.playerRepository.GetAllPlayers(ctx)
+	players, err := g.playerRepository.GetAllPlayers(ctx, g.network, g.channel)
 	if err != nil {
 		return
 	}
