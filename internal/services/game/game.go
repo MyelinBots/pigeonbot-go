@@ -202,7 +202,7 @@ func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 		level := foundPlayer.GetPlayerLevel()
 
 		// Inform the player of their success and current level
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - -  🐦 🔫 You are a murderer! . .  You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: ** %s **", name, foundPlayer.Count, foundPlayer.Points, level))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - -  🐦 🔫 You are a murderer! . .  You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s ", name, foundPlayer.Count, foundPlayer.Points, level))
 
 		// Remove the pigeon from activePigeon
 		g.activePigeon.activePigeon = nil
