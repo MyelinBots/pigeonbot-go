@@ -29,17 +29,25 @@ func (p *Player) String() string {
 // Helper function to determine the player's level
 func (p *Player) GetPlayerLevel() string {
 	switch {
-	case p.Count >= 1 && p.Count <= 100:
-		return "Initiate"
+	case p.Count >= 10 && p.Count <= 100:
+		return "Initiate 🐦"
 	case p.Count >= 101 && p.Count <= 199:
-		return "Adept"
+		return "Adept 🦅"
 	case p.Count >= 200 && p.Count <= 499:
-		return "Expert"
-	case p.Count >= 500 && p.Count <= 999:
-		return "Master"
-	case p.Count >= 1000:
-		return "Grandmaster"
+		return "Expert 🕊️"
+	case p.Count >= 500 && p.Count <= 799:
+		return "Master 🦜"
+	case p.Count >= 800 && p.Count <= 999:
+		return "Grandmaster 🐔"
+	case p.Count >= 1000 && p.Count <= 2999:
+		return "Legendary Phoenix 🐉🔥"
+	case p.Count >= 3000 && p.Count <= 4999:
+		return "Mythic Dragon 🐲✨"
+	case p.Count >= 5000 && p.Count <= 9999:
+		return "Cosmic Falcon 🌌🦅"
+	case p.Count >= 10000:
+		return "God of Pigeons 👑🐦"
 	default:
-		return "Beginner"
+		return "Beginner 🐣"
 	}
 }
