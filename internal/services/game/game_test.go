@@ -2,6 +2,9 @@ package game_test
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/MyelinBots/pigeonbot-go/config"
 	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
 	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player/mocks"
@@ -11,8 +14,6 @@ import (
 	irc "github.com/fluffle/goirc/client"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
-	"testing"
-	"time"
 )
 
 func TestGame(t *testing.T) {
@@ -317,7 +318,7 @@ func TestGame(t *testing.T) {
 
 		ircClient := mocks2.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
-		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help").Times(1)
+		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help, !level").Times(1)
 
 		// Create a new game
 		gameinstance := game.NewGame(config.GameConfig{
