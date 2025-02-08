@@ -46,7 +46,7 @@ func (p *Player) GetPlayerLevel() string {
 	case p.Count >= 5000 && p.Count <= 9999:
 		return "Cosmic Falcon 🌌🦅"
 	case p.Count >= 10000:
-		return "God of Pigeons 👑🐦"
+		return "Lord of Pigeons 👑🐦"
 	default:
 		return "Beginner 🐣"
 	}

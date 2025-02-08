@@ -267,7 +267,7 @@ func (g *Game) HandleHelp(ctx context.Context, args ...string) error {
 	g.players.Lock()
 	defer g.players.Unlock()
 
-	text := "Commands: !shoot, !score, !pigeons, !bef, !help"
+	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level"
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 

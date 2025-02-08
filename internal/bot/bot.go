@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"sync"
+
 	"github.com/MyelinBots/pigeonbot-go/config"
 	"github.com/MyelinBots/pigeonbot-go/internal/db"
 	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
@@ -11,7 +13,6 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
 	irc "github.com/fluffle/goirc/client"
-	"sync"
 )
 
 type GameStarted struct {
@@ -60,6 +61,7 @@ func StartBot() error {
 	commandInstance.AddCommand("!help", gameInstance.HandleHelp)
 	commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
 	commandInstance.AddCommand("!bef", gameInstance.HandleBef)
+	//commandInstance.AddCommand("!level", gameInstance.HandleLevel)
 
 	c.HandleFunc(irc.CONNECTED, func(conn *irc.Conn, line *irc.Line) {
 		fmt.Printf("Connected to %s\n", cfg.IRCConfig.Host)
