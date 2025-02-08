@@ -44,10 +44,13 @@ func StartBot() error {
 	healthcheck.StartHealthcheck(ctx, cfg.AppConfig)
 
 	ircConfig := irc.NewConfig(cfg.IRCConfig.Nick)
+	ircConfig.Me.Name = cfg.IRCConfig.RealName
+	ircConfig.Me.Ident = cfg.IRCConfig.Nick
 	ircConfig.SSL = cfg.IRCConfig.SSL
 	ircConfig.SSLConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}
+
 	ircConfig.Server = fmt.Sprintf("%s:%d", cfg.IRCConfig.Host, cfg.IRCConfig.Port)
 
 	c := irc.Client(ircConfig)

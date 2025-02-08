@@ -23,6 +23,7 @@ type IRCConfig struct {
 	Port             int    `env:"PORT"`
 	SSL              bool   `env:"SSL"`
 	Nick             string `env:"NICK"`
+	RealName         string `env:"REALNAME"`
 	ChannelsString   string `env:"CHANNELS"`
 	Channels         []string
 	Network          string `env:"NETWORK"`
