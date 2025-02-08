@@ -301,3 +301,27 @@ func (g *Game) HandleBef(ctx context.Context, args ...string) error {
 
 	return nil
 }
+
+func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
+	// list player points in one line
+	// format: <player name>: <points>, <player name>: <points>, ...
+	g.players.Lock()
+	defer g.players.Unlock()
+
+	text := ""
+	// sort players by count
+	sortedPlayers := make([]*player.Player, len(g.players.players))
+	copy(sortedPlayers, g.players.players)
+	sort.Slice(sortedPlayers, func(i, j int) bool {
+		return sortedPlayers[i].Count > sortedPlayers[j].Count
+	})
+	for _, p := range sortedPlayers {
+		level := p.GetPlayerLevel()
+		text += fmt.Sprintf("%s: %s, ", p.Name, level)
+
+	}
+
+	g.ircClient.Privmsg(g.channel, text)
+	return nil
+
+}

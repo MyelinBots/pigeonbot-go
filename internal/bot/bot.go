@@ -61,7 +61,7 @@ func StartBot() error {
 	commandInstance.AddCommand("!help", gameInstance.HandleHelp)
 	commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
 	commandInstance.AddCommand("!bef", gameInstance.HandleBef)
-	//commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+	commandInstance.AddCommand("!level", gameInstance.HandleLevel)
 
 	c.HandleFunc(irc.CONNECTED, func(conn *irc.Conn, line *irc.Line) {
 		fmt.Printf("Connected to %s\n", cfg.IRCConfig.Host)
