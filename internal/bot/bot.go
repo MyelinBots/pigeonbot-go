@@ -15,22 +15,20 @@ import (
 	irc "github.com/fluffle/goirc/client"
 )
 
-type GameStarted struct {
-	sync.Mutex
-	started bool
-}
-
 type Identified struct {
 	sync.Mutex
 	identified bool
 }
 
+type GameInstances struct {
+	sync.Mutex
+	GameStarted      map[string]bool
+	games            map[string]*game.Game
+	commandInstances map[string]commands.CommandController
+}
+
 func StartBot() error {
 	cfg := config.LoadConfigOrPanic()
-
-	started := &GameStarted{
-		started: false,
-	}
 
 	identified := &Identified{
 		identified: false,
@@ -55,16 +53,28 @@ func StartBot() error {
 
 	c := irc.Client(ircConfig)
 
-	gameInstance := game.NewGame(cfg.GameConfig, c, playerRepo, cfg.IRCConfig.Network, cfg.IRCConfig.Channels[0])
+	// for each channel make a new game instance
+	gameInstances := &GameInstances{
+		games:            make(map[string]*game.Game),
+		commandInstances: make(map[string]commands.CommandController),
+		GameStarted:      make(map[string]bool),
+	}
+	for _, channel := range cfg.IRCConfig.Channels {
+		gameInstances.Lock()
+		gameInstance := game.NewGame(cfg.GameConfig, c, playerRepo, cfg.IRCConfig.Network, channel)
+		commandInstance := commands.NewCommandController(gameInstance)
 
-	commandInstance := commands.NewCommandController(gameInstance)
-
-	commandInstance.AddCommand("!shoot", gameInstance.HandleShoot)
-	commandInstance.AddCommand("!score", gameInstance.HandlePoints)
-	commandInstance.AddCommand("!help", gameInstance.HandleHelp)
-	commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
-	commandInstance.AddCommand("!bef", gameInstance.HandleBef)
-	commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+		commandInstance.AddCommand("!shoot", gameInstance.HandleShoot)
+		commandInstance.AddCommand("!score", gameInstance.HandlePoints)
+		commandInstance.AddCommand("!help", gameInstance.HandleHelp)
+		commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
+		commandInstance.AddCommand("!bef", gameInstance.HandleBef)
+		commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+		gameInstances.games[channel] = gameInstance
+		gameInstances.commandInstances[channel] = commandInstance
+		gameInstances.GameStarted[channel] = false
+		gameInstances.Unlock()
+	}
 
 	c.HandleFunc(irc.CONNECTED, func(conn *irc.Conn, line *irc.Line) {
 		fmt.Printf("Connected to %s\n", cfg.IRCConfig.Host)
@@ -94,39 +104,61 @@ func StartBot() error {
 
 	c.HandleFunc(irc.JOIN, func(conn *irc.Conn, line *irc.Line) {
 		fmt.Printf("Joined %s\n", line.Args[0])
-		started.Lock()
-		defer started.Unlock()
-		// if channel is first channel in config
-		if line.Args[0] == cfg.IRCConfig.Channels[0] && !started.started {
-			go gameInstance.Start(ctx)
-			started.started = true
+		gameInstances.Lock()
+
+		if gameInstance, ok := gameInstances.games[line.Args[0]]; ok {
+			gameInstance := gameInstance
+
+			if !gameInstances.GameStarted[line.Args[0]] {
+				go gameInstance.Start(ctx)
+				gameInstances.GameStarted[line.Args[0]] = true
+			}
+
 		}
+		gameInstances.Unlock()
+		//// if channel is first channel in config
+		//if line.Args[0] == cfg.IRCConfig.Channels[0] && !started.started {
+		//	go gameInstance.Start(ctx)
+		//	started.started = true
+		//}
 
 		handleNickserv(cfg.IRCConfig, identified, conn)
 		return
 
 	})
-
-	c.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
-
-		fmt.Printf("Invited to %s\n", line.Args[1])
-		conn.Join(line.Args[1])
-
-	})
+	// disable invites
+	//c.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
+	//
+	//	fmt.Printf("Invited to %s\n", line.Args[1])
+	//	conn.Join(line.Args[1])
+	//
+	//})
 
 	c.HandleFunc(irc.PRIVMSG, func(conn *irc.Conn, line *irc.Line) {
 		// if message is !shoot
 		// if message is !start
 		if line.Args[1] == "!start" {
-			started.Lock()
-			defer started.Unlock()
-			if !started.started {
-				go gameInstance.Start(ctx)
-				started.started = true
+
+			gameInstances.Lock()
+			if gameInstance, ok := gameInstances.games[line.Args[0]]; ok {
+
+				gameInstances.Unlock()
+
+				if gameInstances.GameStarted[line.Args[0]] {
+					fmt.Printf("Game already started for %s\n", line.Args[0])
+					return
+				}
+
+				fmt.Printf("Starting gameInstance for %s\n", line.Args[0])
+				gameInstance.Start(ctx)
+				gameInstances.GameStarted[line.Args[0]] = true
 				return
 			}
 
 		}
+		gameInstances.Lock()
+		commandInstance := gameInstances.commandInstances[line.Args[0]]
+		gameInstances.Unlock()
 		err := commandInstance.HandleCommand(ctx, line)
 		if err != nil {
 			fmt.Printf("Error handling command: %s\n", err.Error())

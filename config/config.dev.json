@@ -5,7 +5,7 @@
         "ssl": true,
         "nick": "Pigeonbot2",
         "realname": "Pigeonbot by Myelinbots",
-        "channelsString": "#lobby",
+        "channelsString": "#lobby,#noname",
         "network": "Myelinbots"
 
         
