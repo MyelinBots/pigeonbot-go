@@ -6,6 +6,7 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
 	irc "github.com/fluffle/goirc/client"
+	"strings"
 )
 
 type CommandController interface {
@@ -26,13 +27,16 @@ func NewCommandController(gameinstance *game.Game) CommandController {
 }
 
 func (c *CommandControllerImpl) HandleCommand(ctx context.Context, line *irc.Line) error {
-	command := line.Args[1]
+	message := line.Args[1]
+	// split by space and get the first element
+	command := strings.Split(message, " ")[0]
 	// args := line.Args[1:]
 	fmt.Println("Handling command:", command)
+
 	if handler, exists := c.commands[command]; exists {
 		fmt.Println("Handling command:", command)
 		ctx = context_manager.SetNickContext(ctx, line.Nick)
-		return handler(ctx, line.Args[2:]...)
+		return handler(ctx, line.Args[1:]...)
 	} else {
 		return nil
 	}

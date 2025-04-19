@@ -10,19 +10,25 @@ import (
 )
 
 // InviteHandler allows users to invite purrito to their own channels
-func InviteHandler(ircClient *irc.Conn) func(ctx context.Context, args ...string) error {
+func InviteHandler(ircClient *irc.Conn,
+	startNewGame func(ctx context.Context, channel string),
+) func(ctx context.Context, args ...string) error {
 	return func(ctx context.Context, args ...string) error {
 		nick := context_manager.GetNickContext(ctx)
 
-		if len(args) < 1 || strings.ToLower(args[0]) != "pigeonbot" {
+		commandArgs := strings.Split(args[0], " ")[1:]
+
+		if len(commandArgs) < 1 || strings.ToLower(commandArgs[0]) != "pigeonbot" {
 			return fmt.Errorf("usage: !invite pigeonbot")
 		}
 
 		// get line from args
-		channel := args[1]
+		channel := commandArgs[1]
 
 		ircClient.Join(channel)
 		ircClient.Privmsg(channel, fmt.Sprintf("pigeonbot joins %s's channel. 🐾", nick))
+
+		startNewGame(ctx, channel)
 
 		fmt.Println("Invite command received from", nick)
 		return nil

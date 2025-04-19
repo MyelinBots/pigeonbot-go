@@ -5,9 +5,10 @@
         "ssl": true,
         "nick": "Pigeonbot2",
         "realname": "Pigeonbot by Myelinbots",
-        "channelsString": "#lobby,#noname",
+        "channelsString": "#lobby",
         "network": "Myelinbots"
-
-        
+    },
+    "dbconfig": {
+        "user": "pigeon"
     }
 }
