@@ -325,3 +325,31 @@ func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
 	return nil
 
 }
+
+// --- Helpers for commands.TopHandler ---
+
+// Irc exposes the IRC client (read-only)
+func (g *Game) Irc() IRCClient { return g.ircClient }
+
+// Channel returns the current channel (read-only)
+func (g *Game) Channel() string { return g.channel }
+
+// Network returns the current network (read-only)
+func (g *Game) Network() string { return g.network }
+
+// TopByPoints fetches the top-N players for this game's scope.
+func (g *Game) TopByPoints(ctx context.Context, limit int) ([]*player2.Player, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	return g.playerRepository.TopByPoints(ctx, g.network, g.channel, limit)
+}
+
+// LevelFor maps (points,count) to the player's level using your services/player logic.
+func (g *Game) LevelFor(points, count int) string {
+	tmp := &player.Player{Name: "", Points: points, Count: count}
+	return tmp.GetPlayerLevel()
+}

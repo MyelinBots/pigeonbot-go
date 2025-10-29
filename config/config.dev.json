@@ -1,6 +1,6 @@
 {
     "ircconfig": {
-        "host": "irc.myelinbots.com",
+        "host": "Irc.DarkWorld.Network",
         "port": 6697,
         "ssl": true,
         "nick": "Pigeonbot2",

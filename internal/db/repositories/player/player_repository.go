@@ -4,6 +4,7 @@ package player
 import (
 	"context"
 	"errors"
+
 	"github.com/MyelinBots/pigeonbot-go/internal/db"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -13,6 +14,7 @@ type PlayerRepository interface {
 	GetPlayerByID(id string) (*Player, error)
 	GetAllPlayers(ctx context.Context, network string, channel string) ([]*Player, error)
 	UpsertPlayer(ctx context.Context, player *Player) error
+	TopByPoints(ctx context.Context, network, channel string, limit int) ([]*Player, error)
 }
 
 type PlayerRepositoryImpl struct {
@@ -59,4 +61,28 @@ func (r *PlayerRepositoryImpl) UpsertPlayer(ctx context.Context, player *Player)
 	// update player
 
 	return r.db.DB.Save(existing).Error
+}
+
+// TopByPoints returns the top N players by points (and count as tiebreaker).
+func (r *PlayerRepositoryImpl) TopByPoints(ctx context.Context, network, channel string, limit int) ([]*Player, error) {
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	var players []*Player
+	err := r.db.DB.WithContext(ctx).
+		Where("network = ? AND channel = ?", network, channel).
+		Order("points DESC").
+		Order("count DESC").
+		Order("name ASC").
+		Limit(limit).
+		Find(&players).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return players, nil
 }

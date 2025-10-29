@@ -70,6 +70,16 @@ func StartBot() error {
 		commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
 		commandInstance.AddCommand("!bef", gameInstance.HandleBef)
 		commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+<<<<<<< Updated upstream
+=======
+		commandInstance.AddCommand("!invite", commands.InviteHandler(c, startNewGameInstance(cfg, c, playerRepo, gameInstances)))
+
+		// Leaderboard handlers (share one closure)
+		th := commands.TopHandler(gameInstance)
+		commandInstance.AddCommand("!top5", th)
+		commandInstance.AddCommand("!top10", th)
+
+>>>>>>> Stashed changes
 		gameInstances.games[channel] = gameInstance
 		gameInstances.commandInstances[channel] = commandInstance
 		gameInstances.GameStarted[channel] = false
@@ -102,6 +112,41 @@ func StartBot() error {
 		}
 	})
 
+<<<<<<< Updated upstream
+=======
+	// Handle invite to a new channel
+	c.HandleFunc(irc.INVITE, func(conn *irc.Conn, line *irc.Line) {
+		channel := line.Args[1]
+		fmt.Printf("Invited to %s\n", channel)
+		conn.Join(channel)
+
+		gameInstances.Lock()
+		if _, exists := gameInstances.games[channel]; !exists {
+			gameInstance := game.NewGame(cfg.GameConfig, conn, playerRepo, cfg.IRCConfig.Network, channel)
+			commandInstance := commands.NewCommandController(gameInstance)
+
+			commandInstance.AddCommand("!shoot", gameInstance.HandleShoot)
+			commandInstance.AddCommand("!score", gameInstance.HandlePoints)
+			commandInstance.AddCommand("!help", gameInstance.HandleHelp)
+			commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
+			commandInstance.AddCommand("!bef", gameInstance.HandleBef)
+			commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+			commandInstance.AddCommand("!invite", commands.InviteHandler(c, startNewGameInstance(cfg, c, playerRepo, gameInstances)))
+
+			// Leaderboard handlers (share one closure)
+			th := commands.TopHandler(gameInstance)
+			commandInstance.AddCommand("!top5", th)
+			commandInstance.AddCommand("!top10", th)
+
+			gameInstances.games[channel] = gameInstance
+			gameInstances.commandInstances[channel] = commandInstance
+			gameInstances.GameStarted[channel] = false
+		}
+		gameInstances.Unlock()
+	})
+
+	// Game logic on JOIN
+>>>>>>> Stashed changes
 	c.HandleFunc(irc.JOIN, func(conn *irc.Conn, line *irc.Line) {
 		fmt.Printf("Joined %s\n", line.Args[0])
 		gameInstances.Lock()
@@ -135,13 +180,10 @@ func StartBot() error {
 	//})
 
 	c.HandleFunc(irc.PRIVMSG, func(conn *irc.Conn, line *irc.Line) {
-		// if message is !shoot
 		// if message is !start
 		if line.Args[1] == "!start" {
-
 			gameInstances.Lock()
 			if gameInstance, ok := gameInstances.games[line.Args[0]]; ok {
-
 				gameInstances.Unlock()
 
 				if gameInstances.GameStarted[line.Args[0]] {
@@ -154,17 +196,16 @@ func StartBot() error {
 				gameInstances.GameStarted[line.Args[0]] = true
 				return
 			}
-
 		}
+
 		gameInstances.Lock()
 		commandInstance := gameInstances.commandInstances[line.Args[0]]
 		gameInstances.Unlock()
-		err := commandInstance.HandleCommand(ctx, line)
-		if err != nil {
+
+		if err := commandInstance.HandleCommand(ctx, line); err != nil {
 			fmt.Printf("Error handling command: %s\n", err.Error())
 			return
 		}
-
 	})
 
 	quit := make(chan bool)
@@ -182,6 +223,35 @@ func StartBot() error {
 	return nil
 }
 
+<<<<<<< Updated upstream
+=======
+func startNewGameInstance(cfg config.Config, conn *irc.Conn, playerRepo player.PlayerRepository, gameInstances *GameInstances) func(ctx context.Context, channel string) {
+	return func(ctx context.Context, channel string) {
+		gameInstances.Lock()
+		gameInstance := game.NewGame(cfg.GameConfig, conn, playerRepo, cfg.IRCConfig.Network, channel)
+		commandInstance := commands.NewCommandController(gameInstance)
+
+		commandInstance.AddCommand("!shoot", gameInstance.HandleShoot)
+		commandInstance.AddCommand("!score", gameInstance.HandlePoints)
+		commandInstance.AddCommand("!help", gameInstance.HandleHelp)
+		commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
+		commandInstance.AddCommand("!bef", gameInstance.HandleBef)
+		commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+		commandInstance.AddCommand("!invite", commands.InviteHandler(conn, startNewGameInstance(cfg, conn, playerRepo, gameInstances)))
+
+		// Leaderboard handlers (share one closure)
+		th := commands.TopHandler(gameInstance)
+		commandInstance.AddCommand("!top5", th)
+		commandInstance.AddCommand("!top10", th)
+
+		gameInstances.games[channel] = gameInstance
+		gameInstances.commandInstances[channel] = commandInstance
+		gameInstances.GameStarted[channel] = false
+		gameInstances.Unlock()
+	}
+}
+
+>>>>>>> Stashed changes
 func handleNickserv(cfg config.IRCConfig, identified *Identified, c *irc.Conn) {
 	identified.Lock()
 	defer identified.Unlock()
