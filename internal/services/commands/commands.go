@@ -3,7 +3,6 @@ package commands
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"

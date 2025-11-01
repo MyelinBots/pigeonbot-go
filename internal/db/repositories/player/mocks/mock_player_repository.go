@@ -42,18 +42,18 @@ func (m *MockPlayerRepository) EXPECT() *MockPlayerRepositoryMockRecorder {
 }
 
 // GetAllPlayers mocks base method.
-func (m *MockPlayerRepository) GetAllPlayers(ctx context.Context) ([]*player.Player, error) {
+func (m *MockPlayerRepository) GetAllPlayers(ctx context.Context, network, channel string) ([]*player.Player, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetAllPlayers", ctx)
+	ret := m.ctrl.Call(m, "GetAllPlayers", ctx, network, channel)
 	ret0, _ := ret[0].([]*player.Player)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetAllPlayers indicates an expected call of GetAllPlayers.
-func (mr *MockPlayerRepositoryMockRecorder) GetAllPlayers(ctx any) *gomock.Call {
+func (mr *MockPlayerRepositoryMockRecorder) GetAllPlayers(ctx, network, channel any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPlayers", reflect.TypeOf((*MockPlayerRepository)(nil).GetAllPlayers), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetAllPlayers", reflect.TypeOf((*MockPlayerRepository)(nil).GetAllPlayers), ctx, network, channel)
 }
 
 // GetPlayerByID mocks base method.
@@ -69,6 +69,21 @@ func (m *MockPlayerRepository) GetPlayerByID(id string) (*player.Player, error) 
 func (mr *MockPlayerRepositoryMockRecorder) GetPlayerByID(id any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPlayerByID", reflect.TypeOf((*MockPlayerRepository)(nil).GetPlayerByID), id)
+}
+
+// TopByPoints mocks base method.
+func (m *MockPlayerRepository) TopByPoints(ctx context.Context, network, channel string, limit int) ([]*player.Player, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TopByPoints", ctx, network, channel, limit)
+	ret0, _ := ret[0].([]*player.Player)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// TopByPoints indicates an expected call of TopByPoints.
+func (mr *MockPlayerRepositoryMockRecorder) TopByPoints(ctx, network, channel, limit any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TopByPoints", reflect.TypeOf((*MockPlayerRepository)(nil).TopByPoints), ctx, network, channel, limit)
 }
 
 // UpsertPlayer mocks base method.
