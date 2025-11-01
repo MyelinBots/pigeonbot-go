@@ -17,6 +17,12 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/internal/services/player"
 )
 
+const (
+	ircBold  = "\x02"
+	ircColor = "\x03"
+	ircReset = "\x0F"
+)
+
 type ActivePigeon struct {
 	sync.Mutex
 	activePigeon *pigeon.Pigeon
@@ -324,6 +330,53 @@ func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 
+}
+
+func (g *Game) handleTopN(ctx context.Context, n int) error {
+	g.players.Lock()
+	defer g.players.Unlock()
+
+	g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s%s%s%s", ircBold, c("🏆 Top", 8), ircReset, c(fmt.Sprintf(" %d Pigeon Hunters", n), 12)))
+	text := ""
+	// sort players by count
+	sortedPlayers := make([]*player.Player, len(g.players.players))
+	copy(sortedPlayers, g.players.players)
+	sort.Slice(sortedPlayers, func(i, j int) bool {
+		return sortedPlayers[i].Count > sortedPlayers[j].Count
+	})
+	for i, p := range sortedPlayers {
+		//fmt.Sprintf("%2d. %s  %s — %s  (%s)", i+1, rank, name, points, level)
+		rank := medal(i)
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %s", rank, p.Name, p.Points, g.LevelFor(p.Points, p.Count)))
+	}
+
+	g.ircClient.Privmsg(g.channel, text)
+	return nil
+}
+
+func (g *Game) HandleTop5(ctx context.Context, args ...string) error {
+	return g.handleTopN(ctx, 5)
+}
+
+func (g *Game) HandleTop10(ctx context.Context, args ...string) error {
+	return g.handleTopN(ctx, 10)
+}
+
+func c(s string, fg int) string { // foreground only
+	return fmt.Sprintf("%s%02d%s%s", ircColor, fg, s, ircReset)
+}
+
+func medal(i int) string {
+	switch i {
+	case 0:
+		return "🥇"
+	case 1:
+		return "🥈"
+	case 2:
+		return "🥉"
+	default:
+		return "•"
+	}
 }
 
 // --- Helpers for commands.TopHandler ---
