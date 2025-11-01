@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"fmt"
+
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
 	irc "github.com/fluffle/goirc/client"
@@ -40,6 +41,4 @@ func (c *CommandControllerImpl) HandleCommand(ctx context.Context, line *irc.Lin
 
 func (c *CommandControllerImpl) AddCommand(command string, handler func(ctx context.Context, args ...string) error) {
 	c.commands[command] = handler
-
-	return
 }

@@ -70,6 +70,8 @@ func StartBot() error {
 		commandInstance.AddCommand("!pigeons", gameInstance.HandleCount)
 		commandInstance.AddCommand("!bef", gameInstance.HandleBef)
 		commandInstance.AddCommand("!level", gameInstance.HandleLevel)
+		commandInstance.AddCommand("!top5", gameInstance.HandleTop5)
+		commandInstance.AddCommand("!top10", gameInstance.HandleTop10)
 		gameInstances.games[channel] = gameInstance
 		gameInstances.commandInstances[channel] = commandInstance
 		gameInstances.GameStarted[channel] = false

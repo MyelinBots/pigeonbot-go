@@ -24,7 +24,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
 			{
 				ID:      "test",
 				Name:    "test",
@@ -75,7 +75,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{}, nil).Times(1)
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{}, nil).Times(1)
 		playerRepository.EXPECT().UpsertPlayer(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 
 		ircClient := mocks2.NewMockIRCClient(ctrl)
@@ -118,7 +118,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
 			{
 				ID:      "test",
 				Name:    "test",
@@ -139,7 +139,7 @@ func TestGame(t *testing.T) {
 
 		ircClient := mocks2.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
-		ircClient.EXPECT().Privmsg("channel", "test: 0, test2: 10, ").Times(1)
+		ircClient.EXPECT().Privmsg("channel", "test2: 10, test: 0, ").Times(1)
 
 		// Create a new game
 		gameinstance := game.NewGame(config.GameConfig{
@@ -178,7 +178,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
 			{
 				ID:      "test",
 				Name:    "test",
@@ -237,7 +237,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
 			{
 				ID:      "test",
 				Name:    "test",
@@ -297,7 +297,7 @@ func TestGame(t *testing.T) {
 		ctrl := gomock.NewController(t)
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any()).Return([]*player.Player{
+		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
 			{
 				ID:      "test",
 				Name:    "test",
