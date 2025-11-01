@@ -333,24 +333,20 @@ func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
 }
 
 func (g *Game) handleTopN(ctx context.Context, n int) error {
-	g.players.Lock()
-	defer g.players.Unlock()
-
 	g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s%s%s%s", ircBold, c("🏆 Top", 8), ircReset, c(fmt.Sprintf(" %d Pigeon Hunters", n), 12)))
-	text := ""
-	// sort players by count
-	sortedPlayers := make([]*player.Player, len(g.players.players))
-	copy(sortedPlayers, g.players.players)
-	sort.Slice(sortedPlayers, func(i, j int) bool {
-		return sortedPlayers[i].Count > sortedPlayers[j].Count
-	})
-	for i, p := range sortedPlayers {
-		//fmt.Sprintf("%2d. %s  %s — %s  (%s)", i+1, rank, name, points, level)
+
+	// Get top N players from database sorted by points
+	topPlayers, err := g.TopByPoints(ctx, n)
+	if err != nil {
+		g.ircClient.Privmsg(g.channel, "Error fetching top players")
+		return err
+	}
+
+	for i, p := range topPlayers {
 		rank := medal(i)
 		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %s", rank, p.Name, p.Points, g.LevelFor(p.Points, p.Count)))
 	}
 
-	g.ircClient.Privmsg(g.channel, text)
 	return nil
 }
 
