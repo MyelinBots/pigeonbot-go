@@ -273,7 +273,7 @@ func (g *Game) HandleHelp(ctx context.Context, args ...string) error {
 	g.players.Lock()
 	defer g.players.Unlock()
 
-	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level"
+	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10"
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 
@@ -347,7 +347,7 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 	for i, p := range sortedPlayers {
 		//fmt.Sprintf("%2d. %s  %s — %s  (%s)", i+1, rank, name, points, level)
 		rank := medal(i)
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %s", rank, p.Name, p.Points, g.LevelFor(p.Points, p.Count)))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %d cts — %s", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count)))
 	}
 
 	g.ircClient.Privmsg(g.channel, text)
