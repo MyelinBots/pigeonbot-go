@@ -344,7 +344,7 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 
 	for i, p := range topPlayers {
 		rank := medal(i)
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %s", rank, p.Name, p.Points, g.LevelFor(p.Points, p.Count)))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d pts — %d cts — %s", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count)))
 	}
 
 	return nil
