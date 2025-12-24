@@ -4,11 +4,17 @@ package player
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/MyelinBots/pigeonbot-go/internal/db"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
+
+// canonicalName ensures consistent lowercase name storage
+func canonicalName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
 
 type PlayerRepository interface {
 	GetPlayerByID(id string) (*Player, error)
@@ -51,6 +57,9 @@ func (r *PlayerRepositoryImpl) GetAllPlayers(ctx context.Context, network string
 }
 
 func (r *PlayerRepositoryImpl) UpsertPlayer(ctx context.Context, player *Player) error {
+	// Canonicalize name for consistent storage
+	player.Name = canonicalName(player.Name)
+
 	// find player by name
 	var existing Player
 	err := r.db.DB.Where("name = ? AND channel = ? AND network = ?", player.Name, player.Channel, player.Network).First(&existing).Error
@@ -69,7 +78,7 @@ func (r *PlayerRepositoryImpl) UpsertPlayer(ctx context.Context, player *Player)
 	existing.Count = player.Count
 	// update player
 
-	return r.db.DB.Save(existing).Error
+	return r.db.DB.Save(&existing).Error
 }
 
 // TopByPoints returns the top N players by points (and count as tiebreaker).
@@ -97,6 +106,8 @@ func (r *PlayerRepositoryImpl) TopByPoints(ctx context.Context, network, channel
 }
 
 func (r *PlayerRepositoryImpl) GetEggs(ctx context.Context, network, channel, name string) (int, error) {
+	name = canonicalName(name)
+
 	var p Player
 	err := r.db.DB.WithContext(ctx).
 		Where("name = ? AND channel = ? AND network = ?", name, channel, network).
@@ -113,6 +124,8 @@ func (r *PlayerRepositoryImpl) GetEggs(ctx context.Context, network, channel, na
 }
 
 func (r *PlayerRepositoryImpl) AddEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	name = canonicalName(name)
+
 	if delta <= 0 {
 		return r.GetEggs(ctx, network, channel, name)
 	}
@@ -152,6 +165,8 @@ func (r *PlayerRepositoryImpl) AddEggs(ctx context.Context, network, channel, na
 }
 
 func (r *PlayerRepositoryImpl) GetRareEggs(ctx context.Context, network, channel, name string) (int, error) {
+	name = canonicalName(name)
+
 	var p Player
 	err := r.db.DB.WithContext(ctx).
 		Select("rare_eggs").
@@ -164,6 +179,8 @@ func (r *PlayerRepositoryImpl) GetRareEggs(ctx context.Context, network, channel
 }
 
 func (r *PlayerRepositoryImpl) AddRareEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	name = canonicalName(name)
+
 	if delta <= 0 {
 		return r.GetRareEggs(ctx, network, channel, name)
 	}

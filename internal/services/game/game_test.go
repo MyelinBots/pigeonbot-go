@@ -261,7 +261,7 @@ func TestGame(t *testing.T) {
 
 		ircClient := gameMocks.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
-		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help, !level").Times(1)
+		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10, !eggs").Times(1)
 
 		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
 

@@ -2,6 +2,10 @@ package db
 
 import (
 	"embed"
+	"log"
+	"net/http"
+	"sync"
+
 	"github.com/MyelinBots/pigeonbot-go/config"
 	"github.com/MyelinBots/pigeonbot-go/internal/db"
 	"github.com/golang-migrate/migrate/v4"
@@ -9,13 +13,12 @@ import (
 	"github.com/golang-migrate/migrate/v4/source"
 	"github.com/golang-migrate/migrate/v4/source/httpfs"
 	_ "github.com/golang-migrate/migrate/v4/source/httpfs"
-	"log"
-	"net/http"
 )
 
 var (
 	//go:embed migrations/*.sql
-	migrations embed.FS
+	migrations   embed.FS
+	registerOnce sync.Once
 )
 
 type driver struct {
@@ -47,7 +50,9 @@ func getMigration() (*migrate.Migrate, error) {
 		println(file.Name())
 	}
 
-	source.Register("embed", &driver{})
+	registerOnce.Do(func() {
+		source.Register("embed", &driver{})
+	})
 
 	return migrate.NewWithDatabaseInstance("embed://", cfg.DBConfig.DataBase, dbdriver)
 }

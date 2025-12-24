@@ -1,8 +1,11 @@
 package config
 
 import (
-	"github.com/jinzhu/configor"
+	"os"
+	"path/filepath"
 	"strings"
+
+	"github.com/jinzhu/configor"
 )
 
 type Config struct {
@@ -44,9 +47,35 @@ type GameConfig struct {
 	Interval int `env:"INTERVAL" default:"10"`
 }
 
+// findProjectRoot walks up from the current directory looking for go.mod
+func findProjectRoot() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return ""
+	}
+
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir
+		}
+
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return ""
+		}
+		dir = parent
+	}
+}
+
 func LoadConfigOrPanic() Config {
 	var config = Config{}
-	configor.Load(&config, "config/config.dev.json")
+
+	configPath := "config/config.dev.json"
+	if root := findProjectRoot(); root != "" {
+		configPath = filepath.Join(root, configPath)
+	}
+
+	configor.Load(&config, configPath)
 
 	config.IRCConfig.Channels = strings.Split(config.IRCConfig.ChannelsString, ",")
 

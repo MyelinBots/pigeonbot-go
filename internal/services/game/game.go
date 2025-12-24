@@ -128,7 +128,9 @@ func (g *Game) syncPlayers(ctx context.Context) {
 		return
 	}
 	for _, p := range players {
-		g.players.players = append(g.players.players, player.NewPlayer(p.Name, p.Points, p.Count))
+		// Use canonical name for consistency (DB should already be lowercase after migration)
+		canonicalName := canonicalPlayerName(p.Name)
+		g.players.players = append(g.players.players, player.NewPlayer(canonicalName, p.Points, p.Count))
 	}
 
 }
@@ -173,18 +175,21 @@ func (g *Game) addPlayer(ctx context.Context, name string) (*player.Player, erro
 	g.players.Lock()
 	defer g.players.Unlock()
 
+	// Canonicalize name for consistent storage
+	canonicalName := canonicalPlayerName(name)
+
 	for _, p := range g.players.players {
-		if p.Name == name {
+		if p.Name == canonicalName {
 			return p, nil
 		}
 	}
 
-	newPlayer := player.NewPlayer(name, 0, 0)
+	newPlayer := player.NewPlayer(canonicalName, 0, 0)
 	g.players.players = append(g.players.players, newPlayer)
 	playerEntity := player2.Player{
 		Count:   0,
 		Points:  0,
-		Name:    name,
+		Name:    canonicalName,
 		Channel: g.channel,
 		Network: g.network,
 	}
@@ -200,8 +205,11 @@ func (g *Game) addPlayer(ctx context.Context, name string) (*player.Player, erro
 func (g *Game) FindPlayer(ctx context.Context, name string) (*player.Player, error) {
 	g.players.Lock()
 
+	// Canonicalize name for consistent lookup
+	canonicalName := canonicalPlayerName(name)
+
 	for _, p := range g.players.players {
-		if p.Name == name {
+		if p.Name == canonicalName {
 			g.players.Unlock()
 			return p, nil
 		}
