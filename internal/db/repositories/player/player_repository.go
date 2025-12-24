@@ -15,10 +15,19 @@ type PlayerRepository interface {
 	GetAllPlayers(ctx context.Context, network string, channel string) ([]*Player, error)
 	UpsertPlayer(ctx context.Context, player *Player) error
 	TopByPoints(ctx context.Context, network, channel string, limit int) ([]*Player, error)
+	AddEggs(ctx context.Context, network, channel, name string, delta int) (newTotal int, err error)
+	GetEggs(ctx context.Context, network, channel, name string) (total int, err error)
+	AddRareEggs(ctx context.Context, network, channel, name string, delta int) (newTotal int, err error)
+	GetRareEggs(ctx context.Context, network, channel, name string) (total int, err error)
 }
 
 type PlayerRepositoryImpl struct {
 	db *db.DB
+}
+
+type InventoryRepo interface {
+	AddEggs(ctx context.Context, userID string, delta int) (newTotal int, err error)
+	GetEggs(ctx context.Context, userID string) (total int, err error)
 }
 
 func NewPlayerRepository(db *db.DB) PlayerRepository {
@@ -85,4 +94,91 @@ func (r *PlayerRepositoryImpl) TopByPoints(ctx context.Context, network, channel
 	}
 
 	return players, nil
+}
+
+func (r *PlayerRepositoryImpl) GetEggs(ctx context.Context, network, channel, name string) (int, error) {
+	var p Player
+	err := r.db.DB.WithContext(ctx).
+		Where("name = ? AND channel = ? AND network = ?", name, channel, network).
+		First(&p).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	return p.Eggs, nil
+}
+
+func (r *PlayerRepositoryImpl) AddEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	if delta <= 0 {
+		return r.GetEggs(ctx, network, channel, name)
+	}
+
+	// Ensure player exists (create minimal row if not found)
+	var p Player
+	err := r.db.DB.WithContext(ctx).
+		Where("name = ? AND channel = ? AND network = ?", name, channel, network).
+		First(&p).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			p = Player{
+				ID:      uuid.New().String(),
+				Name:    name,
+				Channel: channel,
+				Network: network,
+				Eggs:    0,
+			}
+			if err := r.db.DB.WithContext(ctx).Create(&p).Error; err != nil {
+				return 0, err
+			}
+		} else {
+			return 0, err
+		}
+	}
+
+	// Atomic increment (no race conditions)
+	if err := r.db.DB.WithContext(ctx).
+		Model(&Player{}).
+		Where("name = ? AND channel = ? AND network = ?", name, channel, network).
+		UpdateColumn("eggs", gorm.Expr("eggs + ?", delta)).Error; err != nil {
+		return 0, err
+	}
+
+	return r.GetEggs(ctx, network, channel, name)
+}
+
+func (r *PlayerRepositoryImpl) GetRareEggs(ctx context.Context, network, channel, name string) (int, error) {
+	var p Player
+	err := r.db.DB.WithContext(ctx).
+		Select("rare_eggs").
+		Where("network = ? AND channel = ? AND name = ?", network, channel, name).
+		First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, nil
+	}
+	return p.RareEggs, err
+}
+
+func (r *PlayerRepositoryImpl) AddRareEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	if delta <= 0 {
+		return r.GetRareEggs(ctx, network, channel, name)
+	}
+
+	// Ensure player exists (reuse your Upsert logic if needed)
+	// If you already create player rows elsewhere, you can skip this part.
+
+	err := r.db.DB.WithContext(ctx).
+		Model(&Player{}).
+		Where("network = ? AND channel = ? AND name = ?", network, channel, name).
+		UpdateColumn("rare_eggs", gorm.Expr("rare_eggs + ?", delta)).
+		Error
+	if err != nil {
+		return 0, err
+	}
+
+	return r.GetRareEggs(ctx, network, channel, name)
 }

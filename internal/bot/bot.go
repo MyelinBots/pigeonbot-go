@@ -72,6 +72,7 @@ func StartBot() error {
 		commandInstance.AddCommand("!level", gameInstance.HandleLevel)
 		commandInstance.AddCommand("!top5", gameInstance.HandleTop5)
 		commandInstance.AddCommand("!top10", gameInstance.HandleTop10)
+		commandInstance.AddCommand("!eggs", gameInstance.HandleEggs)
 		gameInstances.games[channel] = gameInstance
 		gameInstances.commandInstances[channel] = commandInstance
 		gameInstances.GameStarted[channel] = false
@@ -125,7 +126,6 @@ func StartBot() error {
 		//}
 
 		handleNickserv(cfg.IRCConfig, identified, conn)
-		return
 
 	})
 	// disable invites
@@ -161,8 +161,8 @@ func StartBot() error {
 		gameInstances.Lock()
 		commandInstance := gameInstances.commandInstances[line.Args[0]]
 		gameInstances.Unlock()
-		err := commandInstance.HandleCommand(ctx, line)
-		if err != nil {
+		ctxWithNick := context.WithValue(ctx, "nick", line.Nick)
+		if err := commandInstance.HandleCommand(ctxWithNick, line); err != nil {
 			fmt.Printf("Error handling command: %s\n", err.Error())
 			return
 		}

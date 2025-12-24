@@ -1,0 +1,2 @@
+ALTER TABLE players
+DROP COLUMN IF EXISTS rare_eggs;

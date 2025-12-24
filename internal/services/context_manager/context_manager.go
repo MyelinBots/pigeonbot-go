@@ -5,12 +5,22 @@ import (
 	"strings"
 )
 
-type Nick struct{}
+// unexported key type prevents collisions
+type nickKeyType struct{}
 
-func SetNickContext(ctx context.Context, nick string) context.Context {
-	return context.WithValue(ctx, Nick{}, strings.ToLower(nick))
+var nickKey = nickKeyType{}
+
+// WithNick stores the nick in context (normalized to lowercase)
+func WithNick(ctx context.Context, nick string) context.Context {
+	return context.WithValue(ctx, nickKey, strings.ToLower(nick))
 }
 
+// GetNickContext returns nick from context, or "" if missing
 func GetNickContext(ctx context.Context) string {
-	return ctx.Value(Nick{}).(string)
+	v := ctx.Value(nickKey)
+	nick, ok := v.(string)
+	if !ok {
+		return ""
+	}
+	return nick
 }

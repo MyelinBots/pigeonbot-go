@@ -7,7 +7,6 @@ type Pigeon struct {
 	Success int
 }
 
-// NewPigeon initializes a new Pigeon instance
 func NewPigeon(pigeonType string, points, success int) *Pigeon {
 	return &Pigeon{
 		Type:    pigeonType,
@@ -16,7 +15,6 @@ func NewPigeon(pigeonType string, points, success int) *Pigeon {
 	}
 }
 
-// PredefinedPigeons returns a list of predefined pigeons
 func PredefinedPigeons() []*Pigeon {
 	return []*Pigeon{
 		NewPigeon("cartel member", 10, 85),

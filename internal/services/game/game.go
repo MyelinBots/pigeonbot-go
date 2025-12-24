@@ -26,6 +26,8 @@ const (
 type ActivePigeon struct {
 	sync.Mutex
 	activePigeon *pigeon.Pigeon
+	IsMating     bool
+	SpawnedAt    time.Time
 }
 
 type Players struct {
@@ -68,10 +70,36 @@ func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerReposit
 // predefinedActions returns the predefined game actions
 func predefinedActions() []actions.Action {
 	return []actions.Action{
-		{"stole", []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"}, "❗⚠️ A %s pigeon %s your %s - - 🐦", 10},
-		{"pooped", []string{"car 🚗", "head 👤", "laptop 💻"}, "❗⚠️ A %s pigeon %s on your %s - - 🐦", 10},
-		{"landed", []string{"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠", "swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻"}, "❗⚠️ A %s pigeon has %s on your %s - - 🐦", 10},
-		{"mating", []string{"balcony 🏠🌿", "car 🚗", "bed 🛏️", "swimming pool 🏖️", "couch 🛋️", "laptop 💻"}, "❗⚠️ %s pigeons are %s at your %s - - 🕊️ 💕 🕊️", 10},
+		{
+			Action:      "stole",
+			Items:       []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"},
+			Format:      "❗⚠️ A %s pigeon %s your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action:      "pooped",
+			Items:       []string{"car 🚗", "head 👤", "laptop 💻"},
+			Format:      "❗⚠️ A %s pigeon %s on your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action: "landed",
+			Items: []string{
+				"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠",
+				"swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻",
+			},
+			Format:      "❗⚠️ A %s pigeon has %s on your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action: "mating",
+			Items: []string{
+				"balcony 🏠🌿", "car 🚗", "bed 🛏️",
+				"swimming pool 🏖️", "couch 🛋️", "laptop 💻",
+			},
+			Format:      "❗⚠️ %s pigeons are %s at your %s - - 🕊️ 💕 🕊️",
+			ActionPoint: 10,
+		},
 	}
 }
 
@@ -86,7 +114,7 @@ func (g *Game) Start(ctx context.Context) {
 			g.ActOnPlayer(ctx)
 			timer := g.config.Interval
 			if timer == 0 {
-				timer = 10
+				timer = 120 // default to 2 minutes
 			}
 			<-time.After(time.Duration(timer) * time.Second)
 		}
@@ -111,11 +139,22 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 	g.activePigeon.Lock()
 	defer g.activePigeon.Unlock()
 	defer g.players.Unlock()
-	fmt.Println("act on player")
 
 	if g.activePigeon.activePigeon != nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("🕊️ ~ coo coo ~ the %s pigeon has made a clean escape ~ 🕊️", g.activePigeon.activePigeon.Type))
+		aliveFor := time.Since(g.activePigeon.SpawnedAt)
+
+		// pigeon must live at least 60 seconds (adjust as you like)
+		if aliveFor < 60*time.Second {
+			return
+		}
+
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf(
+			"🕊️ ~ coo coo ~ the %s pigeon has made a clean escape ~ 🕊️",
+			g.activePigeon.activePigeon.Type,
+		))
+
 		g.activePigeon.activePigeon = nil
+		g.activePigeon.IsMating = false
 		return
 	}
 
@@ -123,7 +162,9 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 	randomAction := g.actions[rand.IntN(len(g.actions))]
 
 	g.activePigeon.activePigeon = randomPigeon
-	fmt.Println(randomAction.Act(randomPigeon.Type))
+	g.activePigeon.IsMating = (randomAction.Action == "mating")
+	g.activePigeon.SpawnedAt = time.Now()
+
 	g.ircClient.Privmsg(g.channel, randomAction.Act(randomPigeon.Type))
 }
 
@@ -174,51 +215,74 @@ func (g *Game) FindPlayer(ctx context.Context, name string) (*player.Player, err
 func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	name := context_manager.GetNickContext(ctx)
 	fmt.Printf("Handling shoot for player: %s\n", name)
+
 	g.activePigeon.Lock()
 	defer g.activePigeon.Unlock()
 
+	// No pigeon to shoot
 	if g.activePigeon.activePigeon == nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - 🐦", name),
+		)
 		return nil
 	}
 
+	// Find player (in-memory player used for points/count/level)
 	foundPlayer, err := g.FindPlayer(ctx, name)
 	if err != nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - 🐦", name),
+		)
 		return err
 	}
-	//print("Random result: %s, success rate: %s" % (str(randomResult), str(self.active.success() / 100)))
-	// calculate success using rand and active pigeon success rate, must return a 0 or 1, if 0, player loses points, if 1, player gains points
 
-	// Generate a random number between 0 and 99
+	// Roll success
 	randomValue := rand.IntN(100)
+	success := randomValue < g.activePigeon.activePigeon.Success
 
-	// Generate 1 or 0 based on the success rate
-	result := 0
-	if randomValue < g.activePigeon.activePigeon.Success {
-		result = 1
-	}
-
-	if result == 1 {
-		// Success: Update player's count and points
+	if success {
+		// Update points and count
 		foundPlayer.Points += g.activePigeon.activePigeon.Points
 		foundPlayer.Count += 1
 
-		// Determine player's level
 		level := foundPlayer.GetPlayerLevel()
 
-		// Inform the player of their success and current level
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - -  🐦 🔫 You are a murderer! . .  You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s ", name, foundPlayer.Count, foundPlayer.Points, level))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf(
+				"❗⚠️ %s has shot a pigeon! - - 🐦 🔫 You are a murderer! . . You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s",
+				name, foundPlayer.Count, foundPlayer.Points, level,
+			),
+		)
 
-		// Remove the pigeon from activePigeon
+		// 🥚 Eggs (ONLY if mating pigeon) - called once, after successful shot
+		eggMsg, eggErr := g.EggsAfterShot(ctx, name)
+		if eggErr == nil && eggMsg != "" {
+			g.ircClient.Privmsg(g.channel, eggMsg)
+		}
+
+		// 🌟 Rare Egg (ONLY if mating pigeon) - called once, after successful shot
+		// IMPORTANT: use the 2-arg signature: TryRareEgg(ctx, shooterName)
+		rareMsg, rareErr := g.TryRareEgg(ctx, name)
+		if rareErr == nil && rareMsg != "" {
+			g.ircClient.Privmsg(g.channel, rareMsg)
+		}
+
+		// Clear active pigeon
 		g.activePigeon.activePigeon = nil
+		g.activePigeon.IsMating = false
+
 	} else {
-		// Failure: Inform the player
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 🐦", name),
+		)
 	}
 
-	err = g.SavePlayers(ctx)
-	if err != nil {
+	// Persist players state
+	if err := g.SavePlayers(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -273,7 +337,7 @@ func (g *Game) HandleHelp(ctx context.Context, args ...string) error {
 	g.players.Lock()
 	defer g.players.Unlock()
 
-	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10"
+	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10, !eggs"
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 
@@ -344,7 +408,7 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 
 	for i, p := range topPlayers {
 		rank := medal(i)
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d points — %d pigeons — level: %s", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count)))
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s has %d points ::: %d pigeons ::: level: %s ::: eggs collected: %d including %d rare eggs 🌟", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count), p.Eggs, p.RareEggs))
 	}
 
 	return nil
