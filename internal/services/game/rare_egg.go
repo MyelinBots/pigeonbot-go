@@ -7,9 +7,9 @@ import (
 )
 
 const (
-	rareEggAppearPercent  = 10
-	rareEggSuccessPercent = 50 // 50/50 now
-	rareEggPointBoost     = 10000
+	rareEggAppearPercent  = 80 // 80% chance to appear
+	rareEggSuccessPercent = 90 // 90% chance to successfully collect if it appears
+	rareEggPointBoost     = 500
 )
 
 // Called after successful shot (and while activePigeon is locked by caller)
@@ -27,12 +27,12 @@ func (g *Game) TryRareEgg(ctx context.Context, shooterName string) (string, erro
 	// Step 2: fail (no odds mentioned)
 	if rand.IntN(100) >= rareEggSuccessPercent {
 		return fmt.Sprintf(
-			"🥚✨ A mysterious rare egg appeared for %s ... but it cracked and vanished! 💥",
+			"✨ A mysterious rare egg appeared for %s ... but it cracked and vanished! 💥",
 			shooterName,
 		), nil
 	}
 
-	// Step 3: success → DB updates (eggs includes rare eggs)
+	// Step 3: success → DB updates (eggs includes rare eggs) // go run ./cmd serve to test
 	dbName := canonicalPlayerName(shooterName)
 
 	totalEggs, err := g.playerRepository.AddEggs(ctx, g.network, g.channel, dbName, 1)
@@ -53,7 +53,7 @@ func (g *Game) TryRareEgg(ctx context.Context, shooterName string) (string, erro
 	foundPlayer.Points += rareEggPointBoost
 
 	return fmt.Sprintf(
-		"🥚🌟 WOW! %s collected a LEGENDARY rare egg! 🚀 +%d points & +1 egg 🥚 :::: Eggs: %d (Rare: %d) :::: Points: %d",
+		"🌟 WOW! %s collected a LEGENDARY rare egg! 🚀🚀🚀🚀🚀 +%d points with +1 egg 🥚 | Eggs: %d (Rare: %d) | Points: %d",
 		shooterName,
 		rareEggPointBoost,
 		totalEggs,

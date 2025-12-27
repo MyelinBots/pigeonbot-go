@@ -405,9 +405,17 @@ func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
 }
 
 func (g *Game) handleTopN(ctx context.Context, n int) error {
-	g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s%s%s%s", ircBold, c("🏆 Top", 8), ircReset, c(fmt.Sprintf(" %d Pigeon Hunters", n), 12)))
+	// 🏆 Header (gold)
+	g.ircClient.Privmsg(
+		g.channel,
+		fmt.Sprintf(
+			"%s%s%s",
+			ircBold,
+			c(fmt.Sprintf("🏆 Top %d Pigeon Hunters", n), 8),
+			ircReset,
+		),
+	)
 
-	// Get top N players from database sorted by points
 	topPlayers, err := g.TopByPoints(ctx, n)
 	if err != nil {
 		g.ircClient.Privmsg(g.channel, "Error fetching top players")
@@ -416,7 +424,26 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 
 	for i, p := range topPlayers {
 		rank := medal(i)
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s has %d points ::: %d pigeons ::: level: %s ::: eggs collected: %d including %d rare eggs 🌟", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count), p.Eggs, p.RareEggs))
+
+		pointsText := fmt.Sprintf("%d points", p.Points)
+		pigeonsText := fmt.Sprintf("%d pigeons", p.Count)
+		levelText := fmt.Sprintf("Level: %s ", g.LevelFor(p.Points, p.Count))
+		eggsText := fmt.Sprintf("Eggs: %d", p.Eggs)
+		rareText := fmt.Sprintf("Rare: %d 🌟", p.RareEggs)
+
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf(
+				"%s %s :::::: %s | %s | %s | %s (%s)",
+				rank,
+				p.Name,
+				c(pointsText, 7),  // orange points
+				c(pigeonsText, 4), // 🔴 pigeons
+				c(levelText, 13),  // pink level
+				c(eggsText, 8),    // 🟡 eggs
+				c(rareText, 8),    // 🌟 rare eggs (gold)
+			),
+		)
 	}
 
 	return nil
