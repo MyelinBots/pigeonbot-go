@@ -27,16 +27,29 @@ func NewCommandController(gameinstance *game.Game) CommandController {
 }
 
 func (c *CommandControllerImpl) HandleCommand(ctx context.Context, line *irc.Line) error {
-	command := line.Args[1]
-	// args := line.Args[1:]
-	fmt.Println("Handling command:", command)
-	if handler, exists := c.commands[command]; exists {
-		fmt.Println("Handling command:", command)
-		ctx = context_manager.SetNickContext(ctx, line.Nick)
-		return handler(ctx, line.Args[2:]...)
-	} else {
+	if line == nil || len(line.Args) < 2 {
 		return nil
 	}
+
+	command := line.Args[1]
+	fmt.Println("Handling command:", command)
+
+	handler, exists := c.commands[command]
+	if !exists {
+		return nil
+	}
+
+	// Put nick into context (optional, but good)
+	ctx2 := context_manager.WithNick(ctx, line.Nick)
+
+	// Your game handlers expect args[0] to ALWAYS be the caller nick.
+	// So we inject it as the first arg, then append any extra args after the command.
+	args := []string{line.Nick}
+	if len(line.Args) > 2 {
+		args = append(args, line.Args[2:]...)
+	}
+
+	return handler(ctx2, args...)
 }
 
 func (c *CommandControllerImpl) AddCommand(command string, handler func(ctx context.Context, args ...string) error) {

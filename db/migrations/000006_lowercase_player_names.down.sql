@@ -1,0 +1,3 @@
+-- This migration is not reversible
+-- Original case information and separate duplicate rows cannot be restored
+-- No action taken on rollback

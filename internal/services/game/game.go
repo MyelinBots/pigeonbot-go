@@ -26,6 +26,8 @@ const (
 type ActivePigeon struct {
 	sync.Mutex
 	activePigeon *pigeon.Pigeon
+	IsMating     bool
+	SpawnedAt    time.Time
 }
 
 type Players struct {
@@ -68,10 +70,36 @@ func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerReposit
 // predefinedActions returns the predefined game actions
 func predefinedActions() []actions.Action {
 	return []actions.Action{
-		{"stole", []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"}, "❗⚠️ A %s pigeon %s your %s - - 🐦", 10},
-		{"pooped", []string{"car 🚗", "head 👤", "laptop 💻"}, "❗⚠️ A %s pigeon %s on your %s - - 🐦", 10},
-		{"landed", []string{"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠", "swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻"}, "❗⚠️ A %s pigeon has %s on your %s - - 🐦", 10},
-		{"mating", []string{"balcony 🏠🌿", "car 🚗", "bed 🛏️", "swimming pool 🏖️", "couch 🛋️", "laptop 💻"}, "❗⚠️ %s pigeons are %s at your %s - - 🕊️ 💕 🕊️", 10},
+		{
+			Action:      "stole",
+			Items:       []string{"tv 📺", "wallet 💰👛", "food 🍔 🍕 🍪 🌮"},
+			Format:      "❗⚠️ A %s pigeon %s your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action:      "pooped",
+			Items:       []string{"car 🚗", "head 👤", "laptop 💻"},
+			Format:      "❗⚠️ A %s pigeon %s on your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action: "landed",
+			Items: []string{
+				"balcony 🏠🌿", "head 👤", "car 🚗", "house 🏠",
+				"swimming pool 🏖️", "bed 🛏️", "couch 🛋️", "laptop 💻",
+			},
+			Format:      "❗⚠️ A %s pigeon has %s on your %s - - 🐦",
+			ActionPoint: 10,
+		},
+		{
+			Action: "mating",
+			Items: []string{
+				"balcony 🏠🌿", "car 🚗", "bed 🛏️",
+				"swimming pool 🏖️", "couch 🛋️", "laptop 💻",
+			},
+			Format:      "❗⚠️ %s pigeons are %s at your %s - - 🕊️ 💕 🕊️",
+			ActionPoint: 10,
+		},
 	}
 }
 
@@ -86,7 +114,7 @@ func (g *Game) Start(ctx context.Context) {
 			g.ActOnPlayer(ctx)
 			timer := g.config.Interval
 			if timer == 0 {
-				timer = 10
+				timer = 120 // default to 2 minutes
 			}
 			<-time.After(time.Duration(timer) * time.Second)
 		}
@@ -100,7 +128,9 @@ func (g *Game) syncPlayers(ctx context.Context) {
 		return
 	}
 	for _, p := range players {
-		g.players.players = append(g.players.players, player.NewPlayer(p.Name, p.Points, p.Count))
+		// Use canonical name for consistency (DB should already be lowercase after migration)
+		canonicalName := canonicalPlayerName(p.Name)
+		g.players.players = append(g.players.players, player.NewPlayer(canonicalName, p.Points, p.Count))
 	}
 
 }
@@ -111,11 +141,22 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 	g.activePigeon.Lock()
 	defer g.activePigeon.Unlock()
 	defer g.players.Unlock()
-	fmt.Println("act on player")
 
 	if g.activePigeon.activePigeon != nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("🕊️ ~ coo coo ~ the %s pigeon has made a clean escape ~ 🕊️", g.activePigeon.activePigeon.Type))
+		aliveFor := time.Since(g.activePigeon.SpawnedAt)
+
+		// pigeon must live at least 60 seconds (adjust as you like)
+		if aliveFor < 60*time.Second {
+			return
+		}
+
+		g.ircClient.Privmsg(g.channel, fmt.Sprintf(
+			"🕊️ ~ coo coo ~ the %s pigeon has made a clean escape ~ 🕊️",
+			g.activePigeon.activePigeon.Type,
+		))
+
 		g.activePigeon.activePigeon = nil
+		g.activePigeon.IsMating = false
 		return
 	}
 
@@ -123,7 +164,9 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 	randomAction := g.actions[rand.IntN(len(g.actions))]
 
 	g.activePigeon.activePigeon = randomPigeon
-	fmt.Println(randomAction.Act(randomPigeon.Type))
+	g.activePigeon.IsMating = (randomAction.Action == "mating")
+	g.activePigeon.SpawnedAt = time.Now()
+
 	g.ircClient.Privmsg(g.channel, randomAction.Act(randomPigeon.Type))
 }
 
@@ -132,18 +175,21 @@ func (g *Game) addPlayer(ctx context.Context, name string) (*player.Player, erro
 	g.players.Lock()
 	defer g.players.Unlock()
 
+	// Canonicalize name for consistent storage
+	canonicalName := canonicalPlayerName(name)
+
 	for _, p := range g.players.players {
-		if p.Name == name {
+		if p.Name == canonicalName {
 			return p, nil
 		}
 	}
 
-	newPlayer := player.NewPlayer(name, 0, 0)
+	newPlayer := player.NewPlayer(canonicalName, 0, 0)
 	g.players.players = append(g.players.players, newPlayer)
 	playerEntity := player2.Player{
 		Count:   0,
 		Points:  0,
-		Name:    name,
+		Name:    canonicalName,
 		Channel: g.channel,
 		Network: g.network,
 	}
@@ -159,8 +205,11 @@ func (g *Game) addPlayer(ctx context.Context, name string) (*player.Player, erro
 func (g *Game) FindPlayer(ctx context.Context, name string) (*player.Player, error) {
 	g.players.Lock()
 
+	// Canonicalize name for consistent lookup
+	canonicalName := canonicalPlayerName(name)
+
 	for _, p := range g.players.players {
-		if p.Name == name {
+		if p.Name == canonicalName {
 			g.players.Unlock()
 			return p, nil
 		}
@@ -174,51 +223,74 @@ func (g *Game) FindPlayer(ctx context.Context, name string) (*player.Player, err
 func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	name := context_manager.GetNickContext(ctx)
 	fmt.Printf("Handling shoot for player: %s\n", name)
+
 	g.activePigeon.Lock()
 	defer g.activePigeon.Unlock()
 
+	// No pigeon to shoot
 	if g.activePigeon.activePigeon == nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there are no pigeons to shoot! - - 🐦", name),
+		)
 		return nil
 	}
 
+	// Find player (in-memory player used for points/count/level)
 	foundPlayer, err := g.FindPlayer(ctx, name)
 	if err != nil {
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but there was an error finding the player! - - 🐦", name),
+		)
 		return err
 	}
-	//print("Random result: %s, success rate: %s" % (str(randomResult), str(self.active.success() / 100)))
-	// calculate success using rand and active pigeon success rate, must return a 0 or 1, if 0, player loses points, if 1, player gains points
 
-	// Generate a random number between 0 and 99
+	// Roll success
 	randomValue := rand.IntN(100)
+	success := randomValue < g.activePigeon.activePigeon.Success
 
-	// Generate 1 or 0 based on the success rate
-	result := 0
-	if randomValue < g.activePigeon.activePigeon.Success {
-		result = 1
-	}
-
-	if result == 1 {
-		// Success: Update player's count and points
+	if success {
+		// Update points and count
 		foundPlayer.Points += g.activePigeon.activePigeon.Points
 		foundPlayer.Count += 1
 
-		// Determine player's level
 		level := foundPlayer.GetPlayerLevel()
 
-		// Inform the player of their success and current level
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon! - -  🐦 🔫 You are a murderer! . .  You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s ", name, foundPlayer.Count, foundPlayer.Points, level))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf(
+				"❗⚠️ %s has shot a pigeon! - - 🐦 🔫 You are a murderer! . . You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s",
+				name, foundPlayer.Count, foundPlayer.Points, level,
+			),
+		)
 
-		// Remove the pigeon from activePigeon
+		// 🥚 Eggs (ONLY if mating pigeon) - called once, after successful shot
+		eggMsg, eggErr := g.EggsAfterShot(ctx, name)
+		if eggErr == nil && eggMsg != "" {
+			g.ircClient.Privmsg(g.channel, eggMsg)
+		}
+
+		// 🌟 Rare Egg (ONLY if mating pigeon) - called once, after successful shot
+		// IMPORTANT: use the 2-arg signature: TryRareEgg(ctx, shooterName)
+		rareMsg, rareErr := g.TryRareEgg(ctx, name)
+		if rareErr == nil && rareMsg != "" {
+			g.ircClient.Privmsg(g.channel, rareMsg)
+		}
+
+		// Clear active pigeon
 		g.activePigeon.activePigeon = nil
+		g.activePigeon.IsMating = false
+
 	} else {
-		// Failure: Inform the player
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 🐦", name))
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf("❗⚠️ %s has shot a pigeon, but it got away! - - - - - 🐦", name),
+		)
 	}
 
-	err = g.SavePlayers(ctx)
-	if err != nil {
+	// Persist players state
+	if err := g.SavePlayers(ctx); err != nil {
 		return err
 	}
 	return nil
@@ -273,7 +345,7 @@ func (g *Game) HandleHelp(ctx context.Context, args ...string) error {
 	g.players.Lock()
 	defer g.players.Unlock()
 
-	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10"
+	text := "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10, !eggs"
 	g.ircClient.Privmsg(g.channel, text)
 	return nil
 
@@ -333,9 +405,17 @@ func (g *Game) HandleLevel(ctx context.Context, args ...string) error {
 }
 
 func (g *Game) handleTopN(ctx context.Context, n int) error {
-	g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s%s%s%s", ircBold, c("🏆 Top", 8), ircReset, c(fmt.Sprintf(" %d Pigeon Hunters", n), 12)))
+	// 🏆 Header (gold)
+	g.ircClient.Privmsg(
+		g.channel,
+		fmt.Sprintf(
+			"%s%s%s",
+			ircBold,
+			c(fmt.Sprintf("🏆 Top %d Pigeon Hunters", n), 8),
+			ircReset,
+		),
+	)
 
-	// Get top N players from database sorted by points
 	topPlayers, err := g.TopByPoints(ctx, n)
 	if err != nil {
 		g.ircClient.Privmsg(g.channel, "Error fetching top players")
@@ -344,7 +424,26 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 
 	for i, p := range topPlayers {
 		rank := medal(i)
-		g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s %s  %d points — %d pigeons — level: %s", rank, p.Name, p.Points, p.Count, g.LevelFor(p.Points, p.Count)))
+
+		pointsText := fmt.Sprintf("%d points", p.Points)
+		pigeonsText := fmt.Sprintf("%d pigeons", p.Count)
+		levelText := fmt.Sprintf("Level: %s ", g.LevelFor(p.Points, p.Count))
+		eggsText := fmt.Sprintf("Eggs: %d", p.Eggs)
+		rareText := fmt.Sprintf("Rare: %d 🌟", p.RareEggs)
+
+		g.ircClient.Privmsg(
+			g.channel,
+			fmt.Sprintf(
+				"%s %s :::::: %s | %s | %s | %s (%s)",
+				rank,
+				p.Name,
+				c(pointsText, 7),  // orange points
+				c(pigeonsText, 4), // 🔴 pigeons
+				c(levelText, 13),  // pink level
+				c(eggsText, 8),    // 🟡 eggs
+				c(rareText, 8),    // 🌟 rare eggs (gold)
+			),
+		)
 	}
 
 	return nil

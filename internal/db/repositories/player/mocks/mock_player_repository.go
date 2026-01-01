@@ -22,6 +22,17 @@ type MockPlayerRepository struct {
 	ctrl     *gomock.Controller
 	recorder *MockPlayerRepositoryMockRecorder
 	isgomock struct{}
+
+	// Eggs state (simple in-memory store)
+	EggsByKey map[string]int
+
+	// Optional: force errors in tests
+	AddEggsErr error
+	GetEggsErr error
+
+	RareEggsByKey  map[string]int
+	AddRareEggsErr error
+	GetRareEggsErr error
 }
 
 // MockPlayerRepositoryMockRecorder is the mock recorder for MockPlayerRepository.
@@ -98,4 +109,52 @@ func (m *MockPlayerRepository) UpsertPlayer(ctx context.Context, player *player.
 func (mr *MockPlayerRepositoryMockRecorder) UpsertPlayer(ctx, player any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpsertPlayer", reflect.TypeOf((*MockPlayerRepository)(nil).UpsertPlayer), ctx, player)
+}
+
+func key(network, channel, name string) string {
+	return network + "|" + channel + "|" + name
+}
+
+func (m *MockPlayerRepository) GetEggs(ctx context.Context, network, channel, name string) (int, error) {
+	if m.GetEggsErr != nil {
+		return 0, m.GetEggsErr
+	}
+	if m.EggsByKey == nil {
+		m.EggsByKey = make(map[string]int)
+	}
+	return m.EggsByKey[key(network, channel, name)], nil
+}
+
+func (m *MockPlayerRepository) AddEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	if m.AddEggsErr != nil {
+		return 0, m.AddEggsErr
+	}
+	if m.EggsByKey == nil {
+		m.EggsByKey = make(map[string]int)
+	}
+	k := key(network, channel, name)
+	m.EggsByKey[k] += delta
+	return m.EggsByKey[k], nil
+}
+
+func (m *MockPlayerRepository) GetRareEggs(ctx context.Context, network, channel, name string) (int, error) {
+	if m.GetRareEggsErr != nil {
+		return 0, m.GetRareEggsErr
+	}
+	if m.RareEggsByKey == nil {
+		m.RareEggsByKey = make(map[string]int)
+	}
+	return m.RareEggsByKey[key(network, channel, name)], nil
+}
+
+func (m *MockPlayerRepository) AddRareEggs(ctx context.Context, network, channel, name string, delta int) (int, error) {
+	if m.AddRareEggsErr != nil {
+		return 0, m.AddRareEggsErr
+	}
+	if m.RareEggsByKey == nil {
+		m.RareEggsByKey = make(map[string]int)
+	}
+	k := key(network, channel, name)
+	m.RareEggsByKey[k] += delta
+	return m.RareEggsByKey[k], nil
 }

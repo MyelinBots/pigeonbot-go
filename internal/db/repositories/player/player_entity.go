@@ -1,8 +1,9 @@
 package player
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Player struct {
@@ -15,6 +16,8 @@ type Player struct {
 	Channel    string    `gorm:"column:channel;type:text;not null" json:"channel"`
 	CreatedAt  time.Time `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt  time.Time `gorm:"column:updated_at" json:"updated_at"`
+	Eggs       int       `gorm:"column:eggs;type:int;not null;default:0" json:"eggs"`
+	RareEggs   int       `gorm:"column:rare_eggs;type:int;not null;default:0" json:"rare_eggs"`
 }
 
 // set table name

@@ -1,11 +1,15 @@
 {
     "ircconfig": {
-        "host": "irc.myelinbots.com",
+        "host": "us.darkworld.network", 
         "port": 6697,
         "ssl": true,
-        "nick": "Pigeonbot2",
-        "realname": "Pigeonbot by Myelinbots",
-        "channelsString": "#lobby,#noname",
-        "network": "Myelinbots"
+        "nick": "PigeonTest",
+        "realname": "Pigeon Test Bot",
+        "channelsString": "#testing", 
+        "network": "DarkWorld"
+    },
+    "dbconfig": {
+        "host": "localhost",
+        "port": 5434
     }
 }

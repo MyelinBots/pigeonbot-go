@@ -10,105 +10,115 @@ import (
 	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player/mocks"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
-	mocks2 "github.com/MyelinBots/pigeonbot-go/internal/services/game/mocks"
+	gameMocks "github.com/MyelinBots/pigeonbot-go/internal/services/game/mocks"
 	irc "github.com/fluffle/goirc/client"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 )
 
+// If your mock stores eggs/rare eggs in maps, initialize them here.
+// NOTE: do NOT use repo.EXPECT() for eggs methods unless MockGen generated recorder methods for them.
+func initEggStores(repo *mocks.MockPlayerRepository) {
+	if repo.EggsByKey == nil {
+		repo.EggsByKey = make(map[string]int)
+	}
+	// If you add RareEggsByKey to the mock (see below), init it too:
+	// if repo.RareEggsByKey == nil {
+	// 	repo.RareEggsByKey = make(map[string]int)
+	// }
+}
+
 func TestGame(t *testing.T) {
+
 	t.Run("TestGame", func(t *testing.T) {
 		t.Parallel()
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
-			{
-				ID:      "test",
-				Name:    "test",
-				Points:  0,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-		}, nil).Times(1)
+		initEggStores(playerRepository)
 
-		playerRepository.EXPECT().UpsertPlayer(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{
+				{
+					ID:      "test",
+					Name:    "test",
+					Points:  0,
+					Count:   0,
+					Channel: "channel",
+					Network: "network",
+				},
+			}, nil).
+			Times(1)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
-		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(2)
+		playerRepository.EXPECT().
+			UpsertPlayer(gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
+		ircClient.EXPECT().Privmsg("channel", gomock.Any()).AnyTimes()
 
-		// Create a new command controller
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
+
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!shoot", gameinstance.HandleShoot)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!shoot", "test"},
+			Args: []string{"channel", "!shoot"},
 			Nick: "test",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
 	})
+
 	t.Run("TestGame With No Players", func(t *testing.T) {
 		t.Parallel()
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{}, nil).Times(1)
-		playerRepository.EXPECT().UpsertPlayer(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+		initEggStores(playerRepository)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
-		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(2)
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{}, nil).
+			Times(1)
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		playerRepository.EXPECT().
+			UpsertPlayer(gomock.Any(), gomock.Any()).
+			Return(nil).
+			AnyTimes()
 
-		// Create a new command controller
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
+		ircClient.EXPECT().Privmsg("channel", gomock.Any()).AnyTimes()
+
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
+
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!shoot", gameinstance.HandleShoot)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!shoot", "test"},
+			Args: []string{"channel", "!shoot"},
 			Nick: "test2",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
-
 	})
 
 	t.Run("TestGame With Players points", func(t *testing.T) {
@@ -116,59 +126,39 @@ func TestGame(t *testing.T) {
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
-			{
-				ID:      "test",
-				Name:    "test",
-				Points:  0,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-			{
-				ID:      "test2",
-				Name:    "test2",
-				Points:  10,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-		}, nil).Times(1)
+		initEggStores(playerRepository)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{
+				{ID: "test", Name: "test", Points: 0, Count: 0, Channel: "channel", Network: "network"},
+				{ID: "test2", Name: "test2", Points: 10, Count: 0, Channel: "channel", Network: "network"},
+			}, nil).
+			Times(1)
+
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
 		ircClient.EXPECT().Privmsg("channel", "test2: 10, test: 0, ").Times(1)
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
 
-		// Create a new command controller
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!score", gameinstance.HandlePoints)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!score", "test"},
+			Args: []string{"channel", "!score"},
 			Nick: "test2",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
-
 	})
 
 	t.Run("TestGame With Players count", func(t *testing.T) {
@@ -176,56 +166,37 @@ func TestGame(t *testing.T) {
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
-			{
-				ID:      "test",
-				Name:    "test",
-				Points:  0,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-			{
-				ID:      "test2",
-				Name:    "test2",
-				Points:  10,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-		}, nil).Times(1)
+		initEggStores(playerRepository)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{
+				{ID: "test", Name: "test", Points: 0, Count: 0, Channel: "channel", Network: "network"},
+				{ID: "test2", Name: "test2", Points: 10, Count: 0, Channel: "channel", Network: "network"},
+			}, nil).
+			Times(1)
+
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
 		ircClient.EXPECT().Privmsg("channel", "test: 0, test2: 0, ").Times(1)
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
 
-		// Create a new command controller
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!pigeons", gameinstance.HandleCount)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!pigeons", "test"},
+			Args: []string{"channel", "!pigeons"},
 			Nick: "test2",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
 	})
@@ -235,59 +206,39 @@ func TestGame(t *testing.T) {
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
-			{
-				ID:      "test",
-				Name:    "test",
-				Points:  0,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-			{
-				ID:      "test2",
-				Name:    "test2",
-				Points:  10,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-		}, nil).Times(1)
+		initEggStores(playerRepository)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{
+				{ID: "test", Name: "test", Points: 0, Count: 0, Channel: "channel", Network: "network"},
+				{ID: "test2", Name: "test2", Points: 10, Count: 0, Channel: "channel", Network: "network"},
+			}, nil).
+			Times(1)
+
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
 		ircClient.EXPECT().Privmsg("channel", "🕊️ ~ coo coo ~ cannot be frens with a rat of the sky ~ 🕊️").Times(1)
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
 
-		// Create a new command controller
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!bef", gameinstance.HandleBef)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!bef", "test"},
+			Args: []string{"channel", "!bef"},
 			Nick: "test2",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
-
 	})
 
 	t.Run("TestGame help", func(t *testing.T) {
@@ -295,56 +246,37 @@ func TestGame(t *testing.T) {
 		a := assert.New(t)
 
 		ctrl := gomock.NewController(t)
+		defer ctrl.Finish()
 
 		playerRepository := mocks.NewMockPlayerRepository(ctrl)
-		playerRepository.EXPECT().GetAllPlayers(gomock.Any(), "network", "channel").Return([]*player.Player{
-			{
-				ID:      "test",
-				Name:    "test",
-				Points:  0,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-			{
-				ID:      "test2",
-				Name:    "test2",
-				Points:  10,
-				Count:   0,
-				Channel: "channel",
-				Network: "network",
-			},
-		}, nil).Times(1)
+		initEggStores(playerRepository)
 
-		ircClient := mocks2.NewMockIRCClient(ctrl)
+		playerRepository.EXPECT().
+			GetAllPlayers(gomock.Any(), "network", "channel").
+			Return([]*player.Player{
+				{ID: "test", Name: "test", Points: 0, Count: 0, Channel: "channel", Network: "network"},
+				{ID: "test2", Name: "test2", Points: 10, Count: 0, Channel: "channel", Network: "network"},
+			}, nil).
+			Times(1)
+
+		ircClient := gameMocks.NewMockIRCClient(ctrl)
 		ircClient.EXPECT().Privmsg("channel", gomock.Any()).Times(1)
-		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help, !level").Times(1)
+		ircClient.EXPECT().Privmsg("channel", "Commands: !shoot, !score, !pigeons, !bef, !help, !level, !top5, !top10, !eggs").Times(1)
 
-		// Create a new game
-		gameinstance := game.NewGame(config.GameConfig{
-			Interval: 3,
-		}, ircClient, playerRepository, "network", "channel")
+		gameinstance := game.NewGame(config.GameConfig{Interval: 3}, ircClient, playerRepository, "network", "channel")
 
-		// Create a new command controller
 		commandController := commands.NewCommandController(gameinstance)
-
-		// Add a command to the command controller
 		commandController.AddCommand("!help", gameinstance.HandleHelp)
 
-		// Create a new context
 		ctx := context.Background()
-
-		// Create a new irc line
 		line := &irc.Line{
-			Args: []string{"channel", "!help", "test"},
+			Args: []string{"channel", "!help"},
 			Nick: "test2",
 		}
-		go func() {
-			gameinstance.Start(ctx)
-		}()
+
+		go gameinstance.Start(ctx)
 
 		time.Sleep(2 * time.Second)
-		// Handle the command
 		err := commandController.HandleCommand(ctx, line)
 		a.Nil(err)
 	})
