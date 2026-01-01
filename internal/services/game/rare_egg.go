@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	rareEggAppearPercent  = 80 // 80% chance to appear
-	rareEggSuccessPercent = 90 // 90% chance to successfully collect if it appears
+	rareEggAppearPercent  = 10 // 10% chance to appear
+	rareEggSuccessPercent = 50 // 50% chance to successfully collect if it appears
 	rareEggPointBoost     = 500
 )
 
