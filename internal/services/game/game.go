@@ -25,14 +25,21 @@ const (
 
 type ActivePigeon struct {
 	sync.Mutex
-	activePigeon *pigeon.Pigeon
-	IsMating     bool
-	SpawnedAt    time.Time
+	activePigeon   *pigeon.Pigeon
+	IsMating       bool
+	SpawnedAt      time.Time
+	SpawnID        int64
+	CurrentSpawnID int
+	IsAlive        bool
 }
 
 type Players struct {
 	sync.Mutex
 	players []*player.Player
+}
+
+type PlayerShootState struct {
+	LastShotSpawnID int
 }
 
 type IRCClient interface {
@@ -50,8 +57,12 @@ type Game struct {
 	playerRepository player2.PlayerRepository
 	channel          string
 	network          string
-	lastShot         map[string]time.Time
-	shotMu           sync.Mutex
+
+	spawnMu        sync.RWMutex
+	currentSpawnID int64
+
+	lastShot map[string]*shotState
+	shotMu   sync.Mutex
 }
 
 // NewGame initializes and returns a new Game instance
@@ -66,7 +77,7 @@ func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerReposit
 		playerRepository: repo,
 		channel:          channel,
 		network:          network,
-		lastShot:         make(map[string]time.Time),
+		lastShot:         make(map[string]*shotState),
 	}
 }
 
@@ -138,6 +149,13 @@ func (g *Game) syncPlayers(ctx context.Context) {
 
 }
 
+func (g *Game) NewPigeonSpawn() int64 {
+	g.spawnMu.Lock()
+	defer g.spawnMu.Unlock()
+	g.currentSpawnID++
+	return g.currentSpawnID
+}
+
 // ActOnPlayer triggers an action on a player
 func (g *Game) ActOnPlayer(ctx context.Context) {
 	g.players.Lock()
@@ -166,11 +184,18 @@ func (g *Game) ActOnPlayer(ctx context.Context) {
 	randomPigeon := g.pigeons[rand.IntN(len(g.pigeons))]
 	randomAction := g.actions[rand.IntN(len(g.actions))]
 
+	// ✅ นกเกิดใหม่จริง ๆ → เพิ่ม spawnID
+	newSpawnID := g.NewPigeonSpawn()
+
 	g.activePigeon.activePigeon = randomPigeon
 	g.activePigeon.IsMating = (randomAction.Action == "mating")
 	g.activePigeon.SpawnedAt = time.Now()
 
 	g.ircClient.Privmsg(g.channel, randomAction.Act(randomPigeon.Type))
+
+	// (optional debug)
+	fmt.Printf("[dbg] NEW PIGEON spawnID=%d type=%s\n", newSpawnID, randomPigeon.Type)
+
 }
 
 // AddPlayer adds a new player to the game
@@ -223,19 +248,21 @@ func (g *Game) FindPlayer(ctx context.Context, name string) (*player.Player, err
 
 }
 
+func (g *Game) CurrentSpawnID() int64 {
+	g.spawnMu.RLock()
+	defer g.spawnMu.RUnlock()
+	return g.currentSpawnID
+}
+
 func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 	name := context_manager.GetNickContext(ctx)
 
-	// 🔒 PER-USER COOLDOWN CHECK (FIRST)
-	ok, wait := g.canShoot(name)
+	// 🔒 PER-USER COOLDOWN CHECK (5 shots before cooldown)
+	spawnID := g.CurrentSpawnID()
+	ok, wait := g.canShoot(name, spawnID)
 	if !ok {
-		g.ircClient.Privmsg(
-			g.channel,
-			fmt.Sprintf(
-				"... %s, please wait %.0f seconds before shooting again.",
-				name,
-				wait.Seconds(),
-			),
+		g.ircClient.Privmsg(g.channel,
+			fmt.Sprintf("...%s slow down... you can shoot again in %.1f seconds ⏳🕊️", name, wait.Seconds()),
 		)
 		return nil
 	}
