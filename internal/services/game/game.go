@@ -6,6 +6,7 @@ import (
 	"fmt"
 	rand "math/rand/v2"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,13 @@ type PlayerShootState struct {
 
 type IRCClient interface {
 	Privmsg(channel, message string)
+	Notice(target, message string)
+}
+
+type pendingPing struct {
+	nick    string
+	channel string
+	start   time.Time
 }
 
 // Game struct encapsulates game state and functionality
@@ -63,6 +71,12 @@ type Game struct {
 
 	lastShot map[string]*shotState
 	shotMu   sync.Mutex
+
+	// --- ping state ---
+	pingMu       sync.Mutex
+	pending      map[string]pendingPing
+	pingTTL      time.Duration
+	pendingPings map[string]time.Time // token -> start time
 }
 
 // NewGame initializes and returns a new Game instance
@@ -78,6 +92,11 @@ func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerReposit
 		channel:          channel,
 		network:          network,
 		lastShot:         make(map[string]*shotState),
+
+		// ✅ ping init
+		pending:      make(map[string]pendingPing),
+		pingTTL:      8 * time.Second, // ปรับได้ (เช่น 5-10 วิ)
+		pendingPings: make(map[string]time.Time),
 	}
 }
 
@@ -533,4 +552,61 @@ func (g *Game) TopByPoints(ctx context.Context, limit int) ([]*player2.Player, e
 func (g *Game) LevelFor(points, count int) string {
 	tmp := &player.Player{Name: "", Points: points, Count: count}
 	return tmp.GetPlayerLevel()
+}
+
+func (g *Game) HandlePingCommand(ctx context.Context, args ...string) error {
+	name := context_manager.GetNickContext(ctx)
+
+	// token สำหรับจับคู่ reply
+	token := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	g.pingMu.Lock()
+	g.pendingPings[token] = time.Now()
+	g.pingMu.Unlock()
+
+	// ส่ง CTCP PING ไปหา user (จะขึ้น -CTCP- ใน client บางตัว เป็นเรื่องปกติของ CTCP)
+	g.ircClient.Notice(name, "\x01PING "+token+"\x01")
+
+	// fallback timeout 8 วิ ถ้าไม่ตอบ
+	time.AfterFunc(8*time.Second, func() {
+		g.pingMu.Lock()
+		_, ok := g.pendingPings[token]
+		if ok {
+			delete(g.pendingPings, token)
+		}
+		g.pingMu.Unlock()
+
+		if ok {
+			g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s: Pong (timeout)", name))
+		}
+	})
+
+	return nil
+}
+
+// HandleNotice ถูกเรียกจาก bot NOTICE handler
+func (g *Game) HandleNotice(from, msg string) {
+	// CTCP reply จะหน้าตา: \x01PING <token>\x01
+	if !strings.HasPrefix(msg, "\x01PING ") || !strings.HasSuffix(msg, "\x01") {
+		return
+	}
+
+	token := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(msg, "\x01PING "), "\x01"))
+	if token == "" {
+		return
+	}
+
+	g.pingMu.Lock()
+	start, ok := g.pendingPings[token]
+	if ok {
+		delete(g.pendingPings, token)
+	}
+	g.pingMu.Unlock()
+
+	if !ok {
+		return
+	}
+
+	ms := time.Since(start).Milliseconds()
+	g.ircClient.Privmsg(g.channel, fmt.Sprintf("%s: Pong (%d ms)", from, ms))
 }
