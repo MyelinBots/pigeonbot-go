@@ -603,6 +603,6 @@ func (g *Game) HandleCTCPReply(from string, args []string) {
 		return
 	}
 
-	ms := time.Since(p.start).Milliseconds()
-	g.ircClient.Privmsg(p.channel, fmt.Sprintf("%s: Pong (%d ms)", p.nick, ms))
+	secs := time.Since(p.start).Seconds()
+	g.ircClient.Privmsg(p.channel, fmt.Sprintf("%s: Pong (%.2fs)", p.nick, secs))
 }
