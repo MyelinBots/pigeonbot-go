@@ -62,3 +62,15 @@ func (mr *MockIRCClientMockRecorder) Privmsg(channel, message any) *gomock.Call 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Privmsg", reflect.TypeOf((*MockIRCClient)(nil).Privmsg), channel, message)
 }
+
+// Raw mocks base method.
+func (m *MockIRCClient) Raw(message string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Raw", message)
+}
+
+// Raw indicates an expected call of Raw.
+func (mr *MockIRCClientMockRecorder) Raw(message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Raw", reflect.TypeOf((*MockIRCClient)(nil).Raw), message)
+}

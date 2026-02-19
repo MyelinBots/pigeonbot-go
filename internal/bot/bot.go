@@ -157,7 +157,7 @@ func StartBot() error {
 		}
 	})
 
-	// ✅ NOTICE handler (for CTCP replies like \x01PING <token>\x01)
+	// NOTICE handler - catches CTCP replies (like PING responses)
 	c.HandleFunc(irc.NOTICE, func(_ *irc.Conn, line *irc.Line) {
 		if len(line.Args) < 2 {
 			return
@@ -168,7 +168,7 @@ func StartBot() error {
 		defer gameInstances.Unlock()
 
 		for _, g := range gameInstances.games {
-			g.HandleNotice(line.Nick, msg)
+			g.HandleCTCPReply(line.Nick, msg)
 		}
 	})
 

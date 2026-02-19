@@ -135,6 +135,10 @@ func (m *mockIRCClientForTest) Notice(target, message string) {
 	m.messages = append(m.messages, message)
 }
 
+func (m *mockIRCClientForTest) Raw(message string) {
+	m.messages = append(m.messages, message)
+}
+
 // mockPlayerRepositoryForTest is a simple mock for internal tests
 type mockPlayerRepositoryForTest struct {
 	eggs         map[string]int
