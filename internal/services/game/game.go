@@ -6,6 +6,7 @@ import (
 	"fmt"
 	rand "math/rand/v2"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,6 +45,14 @@ type PlayerShootState struct {
 
 type IRCClient interface {
 	Privmsg(channel, message string)
+	Notice(target, message string)
+	Raw(message string)
+}
+
+type pendingPing struct {
+	nick    string
+	channel string
+	start   time.Time
 }
 
 // Game struct encapsulates game state and functionality
@@ -63,6 +72,10 @@ type Game struct {
 
 	lastShot map[string]*shotState
 	shotMu   sync.Mutex
+
+	// --- ping state ---
+	pingMu  sync.Mutex
+	pending map[string]pendingPing
 }
 
 // NewGame initializes and returns a new Game instance
@@ -78,6 +91,9 @@ func NewGame(cfg config.GameConfig, client IRCClient, repo player2.PlayerReposit
 		channel:          channel,
 		network:          network,
 		lastShot:         make(map[string]*shotState),
+
+		// ping state
+		pending: make(map[string]pendingPing),
 	}
 }
 
@@ -533,4 +549,60 @@ func (g *Game) TopByPoints(ctx context.Context, limit int) ([]*player2.Player, e
 func (g *Game) LevelFor(points, count int) string {
 	tmp := &player.Player{Name: "", Points: points, Count: count}
 	return tmp.GetPlayerLevel()
+}
+
+func (g *Game) HandlePingCommand(ctx context.Context, args ...string) error {
+	nick := context_manager.GetNickContext(ctx)
+
+	token := fmt.Sprintf("%d", time.Now().UnixNano())
+
+	g.pingMu.Lock()
+	g.pending[token] = pendingPing{
+		nick:    nick,
+		channel: g.channel,
+		start:   time.Now(),
+	}
+	g.pingMu.Unlock()
+
+	// Send CTCP PING to the user (their client will auto-reply)
+	g.ircClient.Privmsg(nick, "\x01PING "+token+"\x01")
+
+	// Timeout fallback
+	time.AfterFunc(10*time.Second, func() {
+		g.pingMu.Lock()
+		p, ok := g.pending[token]
+		if ok {
+			delete(g.pending, token)
+		}
+		g.pingMu.Unlock()
+
+		if ok {
+			g.ircClient.Privmsg(p.channel, fmt.Sprintf("%s: Pong (timeout)", p.nick))
+		}
+	})
+
+	return nil
+}
+
+// HandleCTCPReply is called when we receive a CTCPREPLY event
+// goirc parses CTCP: Args[0] = verb (PING), Args[1] = target, Args[2+] = payload
+func (g *Game) HandleCTCPReply(from string, args []string) {
+	if len(args) < 3 || strings.ToUpper(args[0]) != "PING" {
+		return
+	}
+
+	token := args[2]
+	g.pingMu.Lock()
+	p, ok := g.pending[token]
+	if ok {
+		delete(g.pending, token)
+	}
+	g.pingMu.Unlock()
+
+	if !ok {
+		return
+	}
+
+	secs := time.Since(p.start).Seconds()
+	g.ircClient.Privmsg(p.channel, fmt.Sprintf("%s: Pong (%.3fs)", p.nick, secs))
 }

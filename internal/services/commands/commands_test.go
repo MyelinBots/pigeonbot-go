@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/MyelinBots/pigeonbot-go/config"
-	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
-	"github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player/mocks"
+	playerRepoPkg "github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player"
+	playerRepoMocks "github.com/MyelinBots/pigeonbot-go/internal/db/repositories/player/mocks"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/commands"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
@@ -17,14 +17,15 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
-func TestNewCommandController(t *testing.T) {
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+func newController(t *testing.T) (*gomock.Controller, commands.CommandController) {
+	t.Helper()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
+	ctrl := gomock.NewController(t)
+
+	playerRepository := playerRepoMocks.NewMockPlayerRepository(ctrl)
 	playerRepository.EXPECT().
 		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
+		Return([]*playerRepoPkg.Player{}, nil).
 		AnyTimes()
 
 	ircClient := gameMocks.NewMockIRCClient(ctrl)
@@ -38,40 +39,26 @@ func TestNewCommandController(t *testing.T) {
 	)
 
 	controller := commands.NewCommandController(gameInstance)
+	return ctrl, controller
+}
+
+func TestNewCommandController(t *testing.T) {
+	ctrl, controller := newController(t)
+	defer ctrl.Finish()
 
 	assert.NotNil(t, controller)
 }
 
 func TestCommandController_AddCommand(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
-
-	// Add a command
 	called := false
 	controller.AddCommand("!test", func(ctx context.Context, args ...string) error {
 		called = true
 		return nil
 	})
 
-	// Execute the command
 	line := &irc.Line{
 		Args: []string{"channel", "!test"},
 		Nick: "testuser",
@@ -79,125 +66,97 @@ func TestCommandController_AddCommand(t *testing.T) {
 
 	err := controller.HandleCommand(context.Background(), line)
 
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.True(t, called)
 }
 
 func TestCommandController_HandleCommand_NilLine(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
-
 	err := controller.HandleCommand(context.Background(), nil)
-
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandController_HandleCommand_InsufficientArgs(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
-
-	// Line with only one arg
+	// Line มีแค่ channel ไม่มี message
 	line := &irc.Line{
 		Args: []string{"channel"},
 		Nick: "testuser",
 	}
 
 	err := controller.HandleCommand(context.Background(), line)
+	assert.NoError(t, err)
+}
 
-	assert.Nil(t, err)
+func TestCommandController_HandleCommand_EmptyMessage(t *testing.T) {
+	ctrl, controller := newController(t)
+	defer ctrl.Finish()
+
+	line := &irc.Line{
+		Args: []string{"channel", ""},
+		Nick: "testuser",
+	}
+
+	err := controller.HandleCommand(context.Background(), line)
+	assert.NoError(t, err)
+}
+
+func TestCommandController_HandleCommand_WhitespaceMessage(t *testing.T) {
+	ctrl, controller := newController(t)
+	defer ctrl.Finish()
+
+	line := &irc.Line{
+		Args: []string{"channel", "   "},
+		Nick: "testuser",
+	}
+
+	err := controller.HandleCommand(context.Background(), line)
+	assert.NoError(t, err)
 }
 
 func TestCommandController_HandleCommand_UnknownCommand(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
-
-	// Unknown command
 	line := &irc.Line{
 		Args: []string{"channel", "!unknown"},
 		Nick: "testuser",
 	}
 
 	err := controller.HandleCommand(context.Background(), line)
-
-	// Should not error on unknown command
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestCommandController_HandleCommand_WithArgs(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
+	var receivedArgs []string
+	controller.AddCommand("!test", func(ctx context.Context, args ...string) error {
+		receivedArgs = args
+		return nil
+	})
 
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
+	// สำคัญ: goirc ไม่แยก arg ให้เรา — message อยู่ใน Args[1] เป็นทั้งบรรทัด
+	line := &irc.Line{
+		Args: []string{"channel", "!test arg1 arg2"},
+		Nick: "testuser",
+	}
 
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
+	err := controller.HandleCommand(context.Background(), line)
 
-	controller := commands.NewCommandController(gameInstance)
+	assert.NoError(t, err)
+	// ตอนนี้ args คือ "หลังคำสั่ง" เท่านั้น (ไม่รวม nick)
+	assert.Equal(t, []string{"arg1", "arg2"}, receivedArgs)
+}
+
+func TestCommandController_HandleCommand_WithExtraSpaces(t *testing.T) {
+	ctrl, controller := newController(t)
+	defer ctrl.Finish()
 
 	var receivedArgs []string
 	controller.AddCommand("!test", func(ctx context.Context, args ...string) error {
@@ -206,38 +165,39 @@ func TestCommandController_HandleCommand_WithArgs(t *testing.T) {
 	})
 
 	line := &irc.Line{
-		Args: []string{"channel", "!test", "arg1", "arg2"},
+		Args: []string{"channel", "   !test    arg1    arg2   "},
 		Nick: "testuser",
 	}
 
 	err := controller.HandleCommand(context.Background(), line)
 
-	assert.Nil(t, err)
-	// First arg should be the nick, then additional args
-	assert.Equal(t, []string{"testuser", "arg1", "arg2"}, receivedArgs)
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"arg1", "arg2"}, receivedArgs)
+}
+
+func TestCommandController_HandleCommand_CaseInsensitiveCommand(t *testing.T) {
+	ctrl, controller := newController(t)
+	defer ctrl.Finish()
+
+	called := false
+	controller.AddCommand("!test", func(ctx context.Context, args ...string) error {
+		called = true
+		return nil
+	})
+
+	line := &irc.Line{
+		Args: []string{"channel", "!TeSt"},
+		Nick: "testuser",
+	}
+
+	err := controller.HandleCommand(context.Background(), line)
+	assert.NoError(t, err)
+	assert.True(t, called)
 }
 
 func TestCommandController_HandleCommand_NickInContext(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
-
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
 
 	var capturedNick string
 	controller.AddCommand("!test", func(ctx context.Context, args ...string) error {
@@ -252,32 +212,14 @@ func TestCommandController_HandleCommand_NickInContext(t *testing.T) {
 
 	err := controller.HandleCommand(context.Background(), line)
 
-	assert.Nil(t, err)
-	// Nick should be normalized to lowercase in context
+	assert.NoError(t, err)
+	// ถ้า context_manager.WithNick ของคุณ normalize เป็น lowercase อยู่แล้ว เทสนี้จะผ่าน
 	assert.Equal(t, "testuser", capturedNick)
 }
 
 func TestCommandController_HandleCommand_HandlerError(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
-
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
 
 	expectedErr := errors.New("handler error")
 	controller.AddCommand("!error", func(ctx context.Context, args ...string) error {
@@ -290,78 +232,39 @@ func TestCommandController_HandleCommand_HandlerError(t *testing.T) {
 	}
 
 	err := controller.HandleCommand(context.Background(), line)
-
 	assert.Equal(t, expectedErr, err)
 }
 
 func TestCommandController_MultipleCommands(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
 
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
-
-	calledCommand := ""
+	called := ""
 
 	controller.AddCommand("!cmd1", func(ctx context.Context, args ...string) error {
-		calledCommand = "cmd1"
+		called = "cmd1"
 		return nil
 	})
 
 	controller.AddCommand("!cmd2", func(ctx context.Context, args ...string) error {
-		calledCommand = "cmd2"
+		called = "cmd2"
 		return nil
 	})
 
-	// Test first command
 	line1 := &irc.Line{Args: []string{"channel", "!cmd1"}, Nick: "user"}
 	err := controller.HandleCommand(context.Background(), line1)
-	assert.Nil(t, err)
-	assert.Equal(t, "cmd1", calledCommand)
+	assert.NoError(t, err)
+	assert.Equal(t, "cmd1", called)
 
-	// Test second command
 	line2 := &irc.Line{Args: []string{"channel", "!cmd2"}, Nick: "user"}
 	err = controller.HandleCommand(context.Background(), line2)
-	assert.Nil(t, err)
-	assert.Equal(t, "cmd2", calledCommand)
+	assert.NoError(t, err)
+	assert.Equal(t, "cmd2", called)
 }
 
 func TestCommandController_EmptyArgs(t *testing.T) {
-	ctrl := gomock.NewController(t)
+	ctrl, controller := newController(t)
 	defer ctrl.Finish()
-
-	playerRepository := mocks.NewMockPlayerRepository(ctrl)
-	playerRepository.EXPECT().
-		GetAllPlayers(gomock.Any(), "network", "channel").
-		Return([]*player.Player{}, nil).
-		AnyTimes()
-
-	ircClient := gameMocks.NewMockIRCClient(ctrl)
-
-	gameInstance := game.NewGame(
-		config.GameConfig{Interval: 3},
-		ircClient,
-		playerRepository,
-		"network",
-		"channel",
-	)
-
-	controller := commands.NewCommandController(gameInstance)
 
 	line := &irc.Line{
 		Args: []string{},
@@ -369,6 +272,5 @@ func TestCommandController_EmptyArgs(t *testing.T) {
 	}
 
 	err := controller.HandleCommand(context.Background(), line)
-
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }

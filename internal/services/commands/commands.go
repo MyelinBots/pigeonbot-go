@@ -2,7 +2,7 @@ package commands
 
 import (
 	"context"
-	"fmt"
+	"strings"
 
 	"github.com/MyelinBots/pigeonbot-go/internal/services/context_manager"
 	"github.com/MyelinBots/pigeonbot-go/internal/services/game"
@@ -26,32 +26,41 @@ func NewCommandController(gameinstance *game.Game) CommandController {
 	}
 }
 
+func (c *CommandControllerImpl) AddCommand(command string, handler func(ctx context.Context, args ...string) error) {
+	// normalize key ให้เป็น lower-case ไว้ก่อน จะได้ match ง่าย
+	c.commands[strings.ToLower(strings.TrimSpace(command))] = handler
+}
+
 func (c *CommandControllerImpl) HandleCommand(ctx context.Context, line *irc.Line) error {
+	// goirc PRIVMSG: line.Args[0] = channel, line.Args[1] = message
 	if line == nil || len(line.Args) < 2 {
 		return nil
 	}
 
-	command := line.Args[1]
-	fmt.Println("Handling command:", command)
-
-	handler, exists := c.commands[command]
-	if !exists {
+	msg := strings.TrimSpace(line.Args[1])
+	if msg == "" {
 		return nil
 	}
 
-	// Put nick into context (optional, but good)
+	parts := strings.Fields(msg)
+	if len(parts) == 0 {
+		return nil
+	}
+
+	cmd := strings.ToLower(parts[0])
+	handler, ok := c.commands[cmd]
+	if !ok {
+		return nil
+	}
+
+	// ใส่ nick เข้า context (มาตรฐาน)
 	ctx2 := context_manager.WithNick(ctx, line.Nick)
 
-	// Your game handlers expect args[0] to ALWAYS be the caller nick.
-	// So we inject it as the first arg, then append any extra args after the command.
-	args := []string{line.Nick}
-	if len(line.Args) > 2 {
-		args = append(args, line.Args[2:]...)
+	// ส่ง args ต่อท้าย (หลัง command)
+	args := []string{}
+	if len(parts) > 1 {
+		args = parts[1:]
 	}
 
 	return handler(ctx2, args...)
-}
-
-func (c *CommandControllerImpl) AddCommand(command string, handler func(ctx context.Context, args ...string) error) {
-	c.commands[command] = handler
 }
