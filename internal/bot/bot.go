@@ -157,18 +157,17 @@ func StartBot() error {
 		}
 	})
 
-	// NOTICE handler - catches CTCP replies (like PING responses)
-	c.HandleFunc(irc.NOTICE, func(_ *irc.Conn, line *irc.Line) {
-		if len(line.Args) < 2 {
+	// CTCPREPLY handler - goirc parses CTCP and dispatches to this event
+	c.HandleFunc(irc.CTCPREPLY, func(_ *irc.Conn, line *irc.Line) {
+		if len(line.Args) < 1 {
 			return
 		}
-		msg := line.Args[1]
 
 		gameInstances.Lock()
 		defer gameInstances.Unlock()
 
 		for _, g := range gameInstances.games {
-			g.HandleCTCPReply(line.Nick, msg)
+			g.HandleCTCPReply(line.Nick, line.Args)
 		}
 	})
 

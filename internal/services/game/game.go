@@ -584,18 +584,14 @@ func (g *Game) HandlePingCommand(ctx context.Context, args ...string) error {
 	return nil
 }
 
-// HandleCTCPReply is called when we receive a NOTICE (CTCP reply)
-func (g *Game) HandleCTCPReply(from, msg string) {
-	// CTCP PING reply format: \x01PING <token>\x01
-	if !strings.HasPrefix(msg, "\x01PING ") || !strings.HasSuffix(msg, "\x01") {
+// HandleCTCPReply is called when we receive a CTCPREPLY event
+// goirc parses CTCP: Args[0] = verb (PING), Args[1] = target, Args[2+] = payload
+func (g *Game) HandleCTCPReply(from string, args []string) {
+	if len(args) < 3 || strings.ToUpper(args[0]) != "PING" {
 		return
 	}
 
-	token := strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(msg, "\x01PING "), "\x01"))
-	if token == "" {
-		return
-	}
-
+	token := args[2]
 	g.pingMu.Lock()
 	p, ok := g.pending[token]
 	if ok {
