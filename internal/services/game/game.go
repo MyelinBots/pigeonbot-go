@@ -316,10 +316,10 @@ func (g *Game) HandleShoot(ctx context.Context, args ...string) error {
 		g.ircClient.Privmsg(
 			g.channel,
 			fmt.Sprintf(
-				"❗⚠️ %s has shot a pigeon! - - 🐦 🔫 You are a murderer! . .  You have shot a total of %d pigeon(s)! . . 🐦 🕊️ . . You now have a total of %d points and reached the level: %s",
+				"❗⚠️ %s has shot a pigeon! - - 🐦 🔫 You are a murderer! . .  You have shot a total of %s pigeon(s)! . . 🐦 🕊️ . . You now have a total of %s points and reached the level: %s",
 				name,
-				foundPlayer.Count,
-				foundPlayer.Points,
+				fmtNum(foundPlayer.Count),
+				fmtNum(foundPlayer.Points),
 				level,
 			),
 		)
@@ -474,11 +474,11 @@ func (g *Game) handleTopN(ctx context.Context, n int) error {
 	for i, p := range topPlayers {
 		rank := medal(i)
 
-		pointsText := fmt.Sprintf("%d points", p.Points)
-		pigeonsText := fmt.Sprintf("%d pigeons", p.Count)
+		pointsText := fmt.Sprintf("%s points", fmtNum(p.Points))
+		pigeonsText := fmt.Sprintf("%s pigeons", fmtNum(p.Count))
 		levelText := fmt.Sprintf("Level: %s ", g.LevelFor(p.Points, p.Count))
-		eggsText := fmt.Sprintf("Eggs: %d", p.Eggs)
-		rareText := fmt.Sprintf("Rare: %d 🌟", p.RareEggs)
+		eggsText := fmt.Sprintf("Eggs: %s", fmtNum(p.Eggs))
+		rareText := fmt.Sprintf("Rare: %s 🌟", fmtNum(p.RareEggs))
 
 		g.ircClient.Privmsg(
 			g.channel,

@@ -36,7 +36,12 @@ func (g *Game) HandleEggs(ctx context.Context, args ...string) error {
 
 	g.ircClient.Privmsg(
 		g.channel,
-		fmt.Sprintf("🥚 %s has %d egg(s) total — including %d rare egg(s) 🌟🥚", nick, totalEggs, totalRare),
+		fmt.Sprintf(
+			"🥚 %s has %s egg(s) total — including %s rare egg(s) 🌟🥚",
+			nick,
+			fmtNum(totalEggs),
+			fmtNum(totalRare),
+		),
 	)
 	return nil
 }

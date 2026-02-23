@@ -77,8 +77,8 @@ func (g *Game) HandleMatingEggs(ctx context.Context, shooterName string) (string
 			return "", err
 		}
 		return fmt.Sprintf(
-			"🥚💥 Oh no... :( the eggs cracked during the chaos! - no eggs collected ... You now have %d egg(s) in total.",
-			total,
+			"🥚💥 Oh no... :( the eggs cracked during the chaos! - no eggs collected ... You now have %s egg(s) in total.",
+			fmtNum(total),
 		), nil
 	}
 
@@ -96,8 +96,11 @@ func (g *Game) HandleMatingEggs(ctx context.Context, shooterName string) (string
 
 	if cracked > 0 {
 		return fmt.Sprintf(
-			"🥚🐣 Yay!! %s has collected %d egg(s) ... Unfortunately, %d cracked!... You now have %d egg(s) in total.",
-			shooterName, final, cracked, total, // ✅ display original nick
+			"🥚🐣 Yay!! %s has collected %s egg(s) ... Unfortunately, %s cracked!... You now have %s egg(s) in total.",
+			shooterName, // ✅ display original nick
+			fmtNum(final),
+			fmtNum(cracked),
+			fmtNum(total),
 		), nil
 	}
 
@@ -107,13 +110,12 @@ func (g *Game) HandleMatingEggs(ctx context.Context, shooterName string) (string
 	}
 
 	return fmt.Sprintf(
-		"%s collected %d egg(s)! Total eggs: %d (Rare egg(s): %d 🌟🥚)",
+		"%s collected %s egg(s)! Total eggs: %s (Rare egg(s): %s 🌟🥚)",
 		shooterName,
-		final,
-		total,
-		rareEggs,
+		fmtNum(final),
+		fmtNum(total),
+		fmtNum(rareEggs),
 	), nil
-
 }
 
 func (g *Game) EggsAfterShot(ctx context.Context, shooterName string) (string, error) {
