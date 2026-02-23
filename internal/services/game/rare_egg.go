@@ -32,7 +32,7 @@ func (g *Game) TryRareEgg(ctx context.Context, shooterName string) (string, erro
 		), nil
 	}
 
-	// Step 3: success → DB updates (eggs includes rare eggs) // go run ./cmd serve to test
+	// Step 3: success → DB updates (eggs includes rare eggs)
 	dbName := canonicalPlayerName(shooterName)
 
 	totalEggs, err := g.playerRepository.AddEggs(ctx, g.network, g.channel, dbName, 1)
@@ -53,11 +53,11 @@ func (g *Game) TryRareEgg(ctx context.Context, shooterName string) (string, erro
 	foundPlayer.Points += rareEggPointBoost
 
 	return fmt.Sprintf(
-		"🌟 WOW! %s collected a LEGENDARY rare egg! 🚀🚀🚀🚀🚀 +%d points with +1 egg 🥚 | Eggs: %d (Rare: %d) | Points: %d",
+		"🌟 WOW! %s collected a LEGENDARY rare egg! 🚀🚀🚀🚀🚀 +%s points with +1 egg 🥚 | Eggs: %s (Rare: %s) | Points: %s",
 		shooterName,
-		rareEggPointBoost,
-		totalEggs,
-		totalRare,
-		foundPlayer.Points,
+		fmtNum(rareEggPointBoost),
+		fmtNum(totalEggs),
+		fmtNum(totalRare),
+		fmtNum(foundPlayer.Points),
 	), nil
 }
